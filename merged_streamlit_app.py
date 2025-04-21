@@ -57,13 +57,8 @@ if not features or not target_cols:
 if 'date' in features:
     features.remove('date')
 
-# Ensure 'energy_consumption' exists before modifying it
-if 'energy_consumption' in data.columns:
-    data['energy_consumption'] *= modify_inputs
-else:
-    st.warning("'energy_consumption' column does not exist. No modification applied.")
-
-# Apply grid outage simulation if checked
+# Apply modifications
+data['energy_consumption'] *= modify_inputs
 if outage_sim:
     data['grid_draw'] = 0
 
@@ -130,7 +125,7 @@ if st.sidebar.button("Train Model"):
     sns.scatterplot(x=pred_df['Actual'], y=pred_df['Predicted'], ax=ax)
     ax.set_xlabel("Actual")
     ax.set_ylabel("Predicted")
-    st.pyplot(fig)
+    st.pyplot(fig)  # Explicitly pass the figure here
 
     # SHAP Explainability
     st.subheader("🧠 SHAP Explainability")
@@ -144,11 +139,8 @@ if st.sidebar.button("Train Model"):
 
     # Monitoring System Resources
     st.sidebar.subheader("🖥️ System Monitoring")
-    try:
-        st.sidebar.metric("CPU Usage", f"{psutil.cpu_percent()}%")
-        st.sidebar.metric("Memory Usage", f"{psutil.virtual_memory().percent}%")
-    except Exception as e:
-        st.sidebar.warning(f"System monitoring failed: {e}")
+    st.sidebar.metric("CPU Usage", f"{psutil.cpu_percent()}%")
+    st.sidebar.metric("Memory Usage", f"{psutil.virtual_memory().percent}%")
 
     mlflow.end_run()
 
