@@ -143,9 +143,21 @@ if st.sidebar.button("Train Model"):
         st.write("Best Model: ", automl_model.fitted_pipeline_)
         st.write("AutoML Training completed.")
 
-    # Chatbot explainer
-    st.subheader("Chatbot Explainer")
-    st.write("Have questions about the model? Ask below!")
-    user_input = st.text_input("Ask a question")
-    if user_input:
-        st.write(f"Model explanation for '{user_input}': The model uses {model_choice} to predict energy output based on the features you've selected.")
+# Chatbot explainer with predefined responses
+st.subheader("Chatbot Explainer")
+st.write("Ask questions about the model below:")
+
+user_input = st.text_input("Ask a question")
+
+if user_input:
+    # Predefined responses based on keywords
+    if 'model' in user_input.lower():
+        st.write("The model predicts renewable energy metrics such as cost, energy output, and CO2 captured.")
+    elif 'train' in user_input.lower():
+        st.write("The model is trained using Random Forest, XGBoost, or AutoML (TPOT).")
+    elif 'features' in user_input.lower():
+        st.write("You can select features like energy consumption, energy output, operating costs, etc.")
+    elif 'target' in user_input.lower():
+        st.write("Target columns are the values you want to predict, such as cost_per_kWh, energy_consumption, etc.")
+    else:
+        st.write("I'm sorry, I didn't understand that. Try asking about the model, training, features, or target.")
