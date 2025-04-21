@@ -10,3 +10,4 @@ autokeras
 pycaret
 tpot
 psutil
+torch
