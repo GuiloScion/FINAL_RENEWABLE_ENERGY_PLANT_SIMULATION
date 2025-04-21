@@ -37,7 +37,10 @@ else:
 # Sidebar for feature and target column selection
 st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
+
+# Ensure the target columns only use available columns from the uploaded data
+available_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
+target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=[col for col in available_target_cols if col in data.columns])
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
@@ -68,10 +71,7 @@ if st.sidebar.button("Train Model"):
     mlflow.start_run()
     mlflow.log_param("model_choice", model_choice)
     mlflow.log_param("n_estimators", n_estimators)
-
-    # Log max_depth only if it's applicable (e.g., Random Forest or XGBoost)
-    if model_choice in ["Random Forest", "XGBoost"]:
-        mlflow.log_param("max_depth", max_depth)
+    mlflow.log_param("max_depth", max_depth)
 
     # Timer to track model training time
     start_time = time.time()
