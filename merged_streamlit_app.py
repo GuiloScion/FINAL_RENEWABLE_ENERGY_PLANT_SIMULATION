@@ -58,10 +58,7 @@ if 'date' in features:
     features.remove('date')
 
 # Apply modifications
-if 'energy_consumption' in data.columns:
-    data['energy_consumption'] *= modify_inputs
-else:
-    st.warning("'energy_consumption' column is missing in the uploaded data.")
+data['energy_consumption'] *= modify_inputs
 if outage_sim:
     data['grid_draw'] = 0
 
@@ -69,7 +66,10 @@ if outage_sim:
 scaler = MinMaxScaler()
 scaled_features = scaler.fit_transform(data[features])
 X = pd.DataFrame(scaled_features, columns=features)
+
+# Make sure that target is correctly shaped for Stacking
 y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
+y = y.values.flatten()  # Flatten the target to ensure it is 1D
 
 # Sidebar for model training
 st.sidebar.header("🤖 Model Training")
@@ -122,7 +122,7 @@ if st.sidebar.button("Train Model"):
         st.bar_chart(feature_df.set_index("Feature"))
 
     st.subheader("📉 Predictions vs Actual")
-    pred_df = pd.DataFrame({"Actual": y_test.values.flatten(), "Predicted": y_pred.flatten()})
+    pred_df = pd.DataFrame({"Actual": y_test.flatten(), "Predicted": y_pred.flatten()})
     st.dataframe(pred_df)
     fig, ax = plt.subplots()
     sns.scatterplot(x=pred_df['Actual'], y=pred_df['Predicted'], ax=ax)
