@@ -1,26 +1,18 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import time
-import psutil
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import xgboost as xgb
-import mlflow
-import mlflow.sklearn
-from tpot import TPOTRegressor
-from sklearn.ensemble import RandomForestRegressor, StackingRegressor, GradientBoostingRegressor, VotingRegressor
-from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
+import shap
+import time
 
-# Page config
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
-st.title("🔋 Renewable Energy Production Simulator")
+st.title("🔋 Renewable Energy Production Predictor")
 
-# Sidebar for file upload
-st.sidebar.header("📁 Upload Data")
+st.sidebar.header("Upload Data")
 uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
 
 @st.cache_data
@@ -30,148 +22,161 @@ def load_data(file):
 
 if uploaded_file is not None:
     data = load_data(uploaded_file)
-    st.subheader("📊 Raw Data")
+    st.subheader("Raw Data")
     st.dataframe(data)
 else:
     st.warning("Please upload a CSV file to proceed.")
     st.stop()
 
-# Sidebar for simulation controls
-st.sidebar.header("🔧 Simulation Controls")
-include_components = st.sidebar.multiselect("Toggle Energy Components", ["Solar", "Wind", "Hydro", "Geothermal", "Battery", "CHP", "Carbon Capture", "AI Optimization"], default=["Solar", "Battery"])
-outage_sim = st.sidebar.checkbox("Simulate Grid Outage")
-modify_inputs = st.sidebar.slider("Modify Demand (Energy Consumption)", 0.5, 2.0, 1.0, step=0.1)
-
 # Sidebar for feature and target column selection
-st.sidebar.header("📈 Feature Selection")
+st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
-available_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=[col for col in available_target_cols if col in data.columns])
+target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
     st.stop()
 
+# Exclude 'date' column from features if present
 if 'date' in features:
     features.remove('date')
-
-# Apply modifications
-data['energy_consumption'] *= modify_inputs
-if outage_sim:
-    data['grid_draw'] = 0
 
 # Scale the input features
 scaler = MinMaxScaler()
 scaled_features = scaler.fit_transform(data[features])
 X = pd.DataFrame(scaled_features, columns=features)
+y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
 
-# Ensure that target `y` corresponds to the same rows as `X`
-y = data[target_cols].iloc[:X.shape[0]]  # Select only as many rows as X has
+# Sidebar for model choice and hyperparameter tuning
+st.sidebar.header("Model Selection & Hyperparameter Tuning")
+model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "SVR"])
 
-# Align by resetting the index (this is a safety measure)
-X = X.reset_index(drop=True)
-y = y.reset_index(drop=True)
+# Define parameter grids for different models
+param_grids = {
+    "Random Forest": {
+        'n_estimators': [50, 100, 150, 200],
+        'max_depth': [5, 10, 15, None],
+        'min_samples_split': [2, 5, 10]
+    },
+    "Gradient Boosting": {
+        'n_estimators': [50, 100, 150],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'max_depth': [3, 5, 7]
+    }
+}
 
-# Now check the shapes
-st.write("Shape of X:", X.shape)
-st.write("Shape of y:", y.shape)
-
-# Sidebar for model training
-st.sidebar.header("🤖 Model Training")
-model_choice = st.sidebar.selectbox("Choose a model", ["Random Forest", "XGBoost", "Stacking", "Deep Learning", "AutoML (TPOT)", "Voting Regressor"])
-n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
-max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
-
-if st.sidebar.button("Train Model"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    mlflow.start_run()
-    mlflow.log_param("model_choice", model_choice)
-    mlflow.log_param("n_estimators", n_estimators)
-    mlflow.log_param("max_depth", max_depth)
-    start_time = time.time()
-
-    # Model selection and configuration
-    if model_choice == "Random Forest":
-        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "XGBoost":
-        model = xgb.XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "Stacking":
-        base_models = [
-            ('rf', RandomForestRegressor(n_estimators=100, max_depth=5, random_state=42)),
-            ('gb', GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, random_state=42))
-        ]
-        model = StackingRegressor(estimators=base_models, final_estimator=xgb.XGBRegressor())
-    elif model_choice == "Deep Learning":
-        model = MLPRegressor(hidden_layer_sizes=(100, 50), max_iter=500)
-    elif model_choice == "AutoML (TPOT)":
-        model = TPOTRegressor(generations=5, population_size=20, random_state=42, verbosity=2)
-    elif model_choice == "Voting Regressor":
-        model = VotingRegressor(
-            estimators=[
-                ('rf', RandomForestRegressor(n_estimators=100)),
-                ('xgb', xgb.XGBRegressor(n_estimators=100)),
-                ('gb', GradientBoostingRegressor(n_estimators=100))
-            ]
-        )
-
+# Train the model and evaluate
+def train_and_evaluate(model, X_train, y_train, X_test, y_test):
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
-    mlflow.log_metric("training_time", time.time() - start_time)
-    mlflow.log_metric("mae", mean_absolute_error(y_test, y_pred))
-    mlflow.log_metric("rmse", np.sqrt(mean_squared_error(y_test, y_pred)))
-    mlflow.log_metric("r2", r2_score(y_test, y_pred))
-    mlflow.sklearn.log_model(model, "model")
+    mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
+    rmse = np.sqrt(mean_squared_error(y_test.values.flatten(), y_pred.flatten()))
+    r2 = r2_score(y_test.values.flatten(), y_pred.flatten())
 
-    st.success(f"Model training completed in {time.time() - start_time:.2f} seconds")
-    st.metric("MAE", f"{mean_absolute_error(y_test, y_pred):.3f}")
-    st.metric("RMSE", f"{np.sqrt(mean_squared_error(y_test, y_pred)):.3f}")
-    st.metric("R²", f"{r2_score(y_test, y_pred):.3f}")
+    return y_pred, mae, rmse, r2
 
-    if hasattr(model, 'feature_importances_'):
-        feature_importances = model.feature_importances_
-        feature_df = pd.DataFrame({"Feature": features, "Importance": feature_importances}).sort_values(by="Importance", ascending=False)
-        st.subheader("📌 Feature Importances")
-        st.dataframe(feature_df)
-        st.bar_chart(feature_df.set_index("Feature"))
+# Model comparison
+metrics = {}
 
-    st.subheader("📉 Predictions vs Actual")
-    pred_df = pd.DataFrame({"Actual": y_test.values.flatten(), "Predicted": y_pred.flatten()})
+if st.sidebar.button("Train and Compare Models"):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    models = {
+        "Random Forest": RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
+        "Gradient Boosting": GradientBoostingRegressor(n_estimators=100, max_depth=3, random_state=42),
+    }
+
+    for model_name, model in models.items():
+        y_pred, mae, rmse, r2 = train_and_evaluate(model, X_train, y_train, X_test, y_test)
+        metrics[model_name] = {"MAE": mae, "RMSE": rmse, "R²": r2}
+    
+    # Display model comparison
+    metrics_df = pd.DataFrame(metrics).T
+    st.subheader("Model Comparison")
+    st.write(metrics_df)
+
+# Hyperparameter tuning
+if st.sidebar.button("Train Model with Hyperparameter Tuning"):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Set up GridSearchCV or RandomizedSearchCV
+    if model_choice in param_grids:
+        param_grid = param_grids[model_choice]
+        if model_choice == "Random Forest":
+            model = RandomForestRegressor(random_state=42)
+        elif model_choice == "Gradient Boosting":
+            model = GradientBoostingRegressor(random_state=42)
+
+        search = RandomizedSearchCV(model, param_grid, n_iter=10, cv=5, verbose=2, random_state=42, n_jobs=-1)
+        search.fit(X_train, y_train)
+        
+        best_params = search.best_params_
+        best_model = search.best_estimator_
+
+        y_pred, mae, rmse, r2 = train_and_evaluate(best_model, X_train, y_train, X_test, y_test)
+
+        st.subheader(f"Best Parameters for {model_choice}: {best_params}")
+        st.write(f"MAE: {mae:.3f}")
+        st.write(f"RMSE: {rmse:.3f}")
+        st.write(f"R² Score: {r2:.3f}")
+
+        # SHAP explainability (only for tree-based models)
+        if model_choice in ["Random Forest", "Gradient Boosting"]:
+            explainer = shap.TreeExplainer(best_model)
+            shap_values = explainer.shap_values(X_test)
+
+            # Plot SHAP summary plot
+            st.subheader(f"SHAP Summary Plot for {model_choice}")
+            shap.summary_plot(shap_values, X_test)
+
+# Show predictions vs actual (labeled)
+if st.sidebar.button("Show Predictions vs Actual"):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = models.get(model_choice, RandomForestRegressor())  # Default to RandomForest
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    pred_df = pd.DataFrame()
+    for i, col in enumerate(target_cols):
+        pred_df[f"Actual_{col}"] = y_test.iloc[:, i].values
+        pred_df[f"Predicted_{col}"] = y_pred[:, i]
+
+    st.subheader("Predictions vs Actual (labeled)")
     st.dataframe(pred_df)
+
+# Residual error analysis
+if st.sidebar.button("Residual Error Analysis"):
+    y_pred = model.predict(X_test)
+    residuals = y_test - y_pred
+
+    st.subheader("Residuals vs Predicted")
+    st.write("A residual plot helps us identify non-random patterns in the errors of the model.")
     fig, ax = plt.subplots()
-    sns.scatterplot(x=pred_df['Actual'], y=pred_df['Predicted'], ax=ax)
-    ax.set_xlabel("Actual")
-    ax.set_ylabel("Predicted")
+    ax.scatter(y_pred, residuals)
+    ax.axhline(0, color='red', linestyle='--')
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Residuals')
     st.pyplot(fig)
 
-    # SHAP Explainability
-    st.subheader("🧠 SHAP Explainability")
-    try:
-        explainer = shap.Explainer(model, X_train)
-        shap_values = explainer(X_test[:100])
-        st_shap = st.empty()
-        st_shap.pyplot(shap.plots.beeswarm(shap_values))
-    except Exception as e:
-        st.warning(f"SHAP explanation failed: {e}")
+# Model summary
+if st.sidebar.button("Model Summary"):
+    st.subheader("Model Summary Report")
+    st.write("This is a simple model summary, showing key metrics and the hyperparameters used for training.")
+    st.write(f"Model Type: {model_choice}")
+    st.write(f"Hyperparameters: {param_grids.get(model_choice, {})}")
+    st.write(f"Training Time: {time.time() - start_time:.2f} seconds")
 
-    # Monitoring System Resources
-    st.sidebar.subheader("🖥️ System Monitoring")
-    st.sidebar.metric("CPU Usage", f"{psutil.cpu_percent()}%")
-    st.sidebar.metric("Memory Usage", f"{psutil.virtual_memory().percent}%")
-
-    mlflow.end_run()
-
-# Chatbot Explainer
-st.subheader("🤖 Chatbot Explainer")
-user_input = st.text_input("Ask about the model or simulation")
-if user_input:
-    if "model" in user_input.lower():
-        st.write("We use Random Forest, XGBoost, Deep Learning, and AutoML to predict energy outcomes.")
-    elif "simulate" in user_input.lower():
-        st.write("Simulation supports component toggling, outage scenarios, and real-time demand changes.")
-    elif "feature" in user_input.lower():
-        st.write("Features are the inputs used for prediction, such as energy type metrics and system states.")
-    elif "target" in user_input.lower():
-        st.write("Target columns are the outputs we predict like cost, CO2 captured, or hydrogen produced.")
+# Energy efficiency suggestions
+def energy_efficiency_suggestions(predictions, threshold=0.8):
+    high_consumption = predictions["energy_consumption"] > threshold * predictions["energy_consumption"].max()
+    if high_consumption.any():
+        st.subheader("Energy Efficiency Suggestions:")
+        st.write("Based on the predictions, the following actions can help reduce energy consumption:")
+        st.write("- Install energy-efficient lighting systems")
+        st.write("- Consider investing in renewable energy sources like solar power")
+        st.write("- Upgrade insulation in buildings to reduce heating/cooling costs")
     else:
-        st.write("I'm here to help! Try asking about 'model', 'simulate', 'feature', or 'target'.")
+        st.write("Energy consumption is within expected limits.")
+        
+energy_efficiency_suggestions(pred_df)
