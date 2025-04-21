@@ -31,7 +31,10 @@ else:
 # Sidebar for feature and target column selection
 st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
+
+# Set default target columns if they exist in the uploaded data
+default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
+target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=[col for col in default_target_cols if col in data.columns.tolist()])
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
@@ -165,7 +168,6 @@ if st.sidebar.button("Model Summary"):
     st.write("This is a simple model summary, showing key metrics and the hyperparameters used for training.")
     st.write(f"Model Type: {model_choice}")
     st.write(f"Hyperparameters: {param_grids.get(model_choice, {})}")
-    st.write(f"Training Time: {time.time() - start_time:.2f} seconds")
 
 # Energy efficiency suggestions
 def energy_efficiency_suggestions(predictions, threshold=0.8):
