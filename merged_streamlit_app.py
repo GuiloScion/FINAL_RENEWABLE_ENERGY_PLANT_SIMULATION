@@ -6,7 +6,6 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
-from sklearn.multioutput import MultiOutputRegressor
 import shap
 import time
 
@@ -71,14 +70,9 @@ param_grids = {
 
 # Train the model and evaluate
 def train_and_evaluate(model, X_train, y_train, X_test, y_test):
-    # Wrap model in MultiOutputRegressor if there are multiple targets
-    if y_train.shape[1] > 1:
-        model = MultiOutputRegressor(model)
-    
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
-    # Flatten for metric calculations
     mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
     rmse = np.sqrt(mean_squared_error(y_test.values.flatten(), y_pred.flatten()))
     r2 = r2_score(y_test.values.flatten(), y_pred.flatten())
@@ -177,14 +171,23 @@ if st.sidebar.button("Model Summary"):
 
 # Energy efficiency suggestions
 def energy_efficiency_suggestions(predictions, threshold=0.8):
-    high_consumption = predictions["energy_consumption"] > threshold * predictions["energy_consumption"].max()
-    if high_consumption.any():
-        st.subheader("Energy Efficiency Suggestions:")
-        st.write("Based on the predictions, the following actions can help reduce energy consumption:")
-        st.write("- Install energy-efficient lighting systems")
-        st.write("- Consider investing in renewable energy sources like solar power")
-        st.write("- Upgrade insulation in buildings to reduce heating/cooling costs")
-    else:
-        st.write("Energy consumption is within expected limits.")
+    # Ensure necessary columns are in the DataFrame
+    if "energy_consumption" in predictions.columns:
+        high_consumption = predictions["energy_consumption"] > threshold * predictions["energy_consumption"].max()
         
-energy_efficiency_suggestions(pred_df)
+        if high_consumption.any():
+            st.subheader("Energy Efficiency Suggestions:")
+            st.write("Based on the predictions, the following actions can help reduce energy consumption:")
+            st.write("- Install energy-efficient lighting systems")
+            st.write("- Consider investing in renewable energy sources like solar power")
+            st.write("- Upgrade insulation in buildings to reduce heating/cooling costs")
+        else:
+            st.write("Energy consumption is within expected limits.")
+    else:
+        st.warning("The 'energy_consumption' column is missing in the predictions.")
+
+# Ensure predictions DataFrame contains necessary columns
+if 'energy_consumption' in pred_df.columns:
+    energy_efficiency_suggestions(pred_df)
+else:
+    st.warning("Energy consumption data is not available for efficiency suggestions.")
