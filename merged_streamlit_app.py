@@ -5,13 +5,13 @@ import time
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.ensemble import RandomForestRegressor  # Add this line
 import xgboost as xgb
 import mlflow
 import mlflow.sklearn
 from tpot import TPOTRegressor
 import os
 import shap
+from sklearn.ensemble import RandomForestRegressor  # Ensure this import is included
 
 # Page config
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
@@ -37,10 +37,7 @@ else:
 # Sidebar for feature and target column selection
 st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
-
-# Set default target columns dynamically based on the available columns
-default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=[col for col in default_target_cols if col in data.columns])
+target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
@@ -63,6 +60,14 @@ model_choice = st.sidebar.selectbox("Choose a model", ["Random Forest", "XGBoost
 n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
+# Debugging output for model_choice
+st.write(f"Model Choice: {model_choice}")  # Debug line to confirm the selected model
+
+# Validate model_choice
+if model_choice not in ["Random Forest", "XGBoost", "AutoML (TPOT)"]:
+    st.error(f"Invalid model choice: {model_choice}")
+    st.stop()  # Stops execution if model_choice is invalid
+
 # Train the model when button is clicked
 if st.sidebar.button("Train Model"):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -81,7 +86,7 @@ if st.sidebar.button("Train Model"):
     elif model_choice == "XGBoost":
         model = xgb.XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
     elif model_choice == "AutoML (TPOT)":
-        model = TPOTRegressor( generations=5, population_size=20, random_state=42, verbosity=2)
+        model = TPOTRegressor(generations=5, population_size=20, random_state=42, verbosity=2)
 
     model.fit(X_train, y_train)
 
@@ -138,7 +143,7 @@ if st.sidebar.button("Train Model"):
     # AutoML Button (optional)
     if st.sidebar.button("Run AutoML"):
         st.write("Running AutoML with TPOT...")
-        automl_model = TPOTRegressor( generations=5, population_size=20, random_state=42)
+        automl_model = TPOTRegressor(generations=5, population_size=20, random_state=42)
         automl_model.fit(X_train, y_train)
         st.write("Best Model: ", automl_model.fitted_pipeline_)
         st.write("AutoML Training completed.")
