@@ -71,6 +71,11 @@ X = pd.DataFrame(scaled_features, columns=features)
 y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
 y = y.values.flatten()  # Flatten the target to ensure it is 1D
 
+# Check that X and y have the same number of rows
+if len(X) != len(y):
+    st.error(f"Feature set X and target set y have mismatched lengths: {len(X)} != {len(y)}")
+    st.stop()
+
 # Sidebar for model training
 st.sidebar.header("🤖 Model Training")
 model_choice = st.sidebar.selectbox("Choose a model", ["Random Forest", "XGBoost", "Stacking", "Deep Learning", "AutoML (TPOT)"])
