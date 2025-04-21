@@ -14,7 +14,6 @@ import mlflow.sklearn
 from tpot import TPOTRegressor
 import os
 import shap
-import torch
 from sklearn.ensemble import RandomForestRegressor, StackingRegressor, GradientBoostingRegressor
 from sklearn.neural_network import MLPRegressor
 
@@ -58,8 +57,13 @@ if not features or not target_cols:
 if 'date' in features:
     features.remove('date')
 
-# Apply modifications
-data['energy_consumption'] *= modify_inputs
+# Ensure 'energy_consumption' exists before modifying it
+if 'energy_consumption' in data.columns:
+    data['energy_consumption'] *= modify_inputs
+else:
+    st.warning("'energy_consumption' column does not exist. No modification applied.")
+
+# Apply grid outage simulation if checked
 if outage_sim:
     data['grid_draw'] = 0
 
@@ -140,8 +144,11 @@ if st.sidebar.button("Train Model"):
 
     # Monitoring System Resources
     st.sidebar.subheader("🖥️ System Monitoring")
-    st.sidebar.metric("CPU Usage", f"{psutil.cpu_percent()}%")
-    st.sidebar.metric("Memory Usage", f"{psutil.virtual_memory().percent}%")
+    try:
+        st.sidebar.metric("CPU Usage", f"{psutil.cpu_percent()}%")
+        st.sidebar.metric("Memory Usage", f"{psutil.virtual_memory().percent}%")
+    except Exception as e:
+        st.sidebar.warning(f"System monitoring failed: {e}")
 
     mlflow.end_run()
 
