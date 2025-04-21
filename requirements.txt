@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+matplotlib
+scikit-learn
+xgboost
+mlflow
+shap
+autokeras
+pycaret
