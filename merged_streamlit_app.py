@@ -67,26 +67,16 @@ scaler = MinMaxScaler()
 scaled_features = scaler.fit_transform(data[features])
 X = pd.DataFrame(scaled_features, columns=features)
 
-# Make sure that target is correctly shaped for Stacking
-y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
-y = y.values.flatten()  # Flatten the target to ensure it is 1D
+# Ensure that target `y` corresponds to the same rows as `X`
+y = data[target_cols].iloc[:X.shape[0]]  # Select only as many rows as X has
 
-# Debugging: Print the shapes of X and y
+# Align by resetting the index (this is a safety measure)
+X = X.reset_index(drop=True)
+y = y.reset_index(drop=True)
+
+# Now check the shapes
 st.write("Shape of X:", X.shape)
 st.write("Shape of y:", y.shape)
-
-# Debugging: Check for missing values in X and y
-st.write("Missing values in X:", X.isnull().sum())
-st.write("Missing values in y:", pd.Series(y).isnull().sum())
-
-# Align X and y by resetting index (if necessary)
-X = X.reset_index(drop=True)
-y = pd.Series(y).reset_index(drop=True)
-
-# Check if X and y have the same number of rows after alignment
-if len(X) != len(y):
-    st.error(f"Feature set X and target set y have mismatched lengths: {len(X)} != {len(y)}")
-    st.stop()
 
 # Sidebar for model training
 st.sidebar.header("🤖 Model Training")
@@ -139,7 +129,7 @@ if st.sidebar.button("Train Model"):
         st.bar_chart(feature_df.set_index("Feature"))
 
     st.subheader("📉 Predictions vs Actual")
-    pred_df = pd.DataFrame({"Actual": y_test.flatten(), "Predicted": y_pred.flatten()})
+    pred_df = pd.DataFrame({"Actual": y_test.values.flatten(), "Predicted": y_pred.flatten()})
     st.dataframe(pred_df)
     fig, ax = plt.subplots()
     sns.scatterplot(x=pred_df['Actual'], y=pred_df['Predicted'], ax=ax)
@@ -163,3 +153,18 @@ if st.sidebar.button("Train Model"):
     st.sidebar.metric("Memory Usage", f"{psutil.virtual_memory().percent}%")
 
     mlflow.end_run()
+
+# Chatbot Explainer
+st.subheader("🤖 Chatbot Explainer")
+user_input = st.text_input("Ask about the model or simulation")
+if user_input:
+    if "model" in user_input.lower():
+        st.write("We use Random Forest, XGBoost, Deep Learning, and AutoML to predict energy outcomes.")
+    elif "simulate" in user_input.lower():
+        st.write("Simulation supports component toggling, outage scenarios, and real-time demand changes.")
+    elif "feature" in user_input.lower():
+        st.write("Features are the inputs used for prediction, such as energy type metrics and system states.")
+    elif "target" in user_input.lower():
+        st.write("Target columns are the outputs we predict like cost, CO2 captured, or hydrogen produced.")
+    else:
+        st.write("I'm here to help! Try asking about 'model', 'simulate', 'feature', or 'target'.")
