@@ -1,146 +1,110 @@
+# Imports
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
-import shap
-import time
+from sklearn.multioutput import MultiOutputRegressor
 
-st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
-st.title("🔋 Renewable Energy Production Predictor")
+# Sidebar controls
+st.sidebar.title("Model Controls")
+model_choice = st.sidebar.selectbox("Choose Model", ["Random Forest", "Gradient Boosting"])
+n_estimators = st.sidebar.slider("Number of Estimators", 10, 500, 100)
+max_depth = st.sidebar.slider("Max Depth", 1, 50, 5)
+learning_rate = st.sidebar.slider("Learning Rate (GB only)", 0.01, 0.5, 0.1)
 
-st.sidebar.header("Upload Data")
-uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
-
+# Load and scale data
 @st.cache_data
-def load_data(file):
-    data = pd.read_csv(file)
-    return data
+def load_data():
+    # Dummy data for demo
+    np.random.seed(42)
+    X = pd.DataFrame(np.random.rand(100, 5), columns=[f"Feature_{i}" for i in range(5)])
+    y = pd.DataFrame({
+        "grid_draw": np.random.rand(100),
+        "energy_output": np.random.rand(100),
+        "energy_consumption": np.random.rand(100),
+        "cost": np.random.rand(100)
+    })
+    return X, y
 
-if uploaded_file is not None:
-    data = load_data(uploaded_file)
-    st.subheader("Raw Data")
-    st.dataframe(data)
-else:
-    st.warning("Please upload a CSV file to proceed.")
-    st.stop()
-
-# Sidebar for feature and target column selection
-st.sidebar.header("Feature Selection")
-features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=[col for col in data.columns if col in ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]])
-
-if not features or not target_cols:
-    st.error("Please select at least one feature and one target column.")
-    st.stop()
-
-if 'date' in features:
-    features.remove('date')
-
+X, y = load_data()
 scaler = MinMaxScaler()
-scaled_features = scaler.fit_transform(data[features])
-X = pd.DataFrame(scaled_features, columns=features)
-y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
+X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
-st.sidebar.header("Model Selection & Hyperparameter Tuning")
-model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting"])
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-param_grids = {
-    "Random Forest": {
-        'n_estimators': [50, 100, 150, 200],
-        'max_depth': [5, 10, 15, None],
-        'min_samples_split': [2, 5, 10]
-    },
-    "Gradient Boosting": {
-        'n_estimators': [50, 100, 150],
-        'learning_rate': [0.01, 0.1, 0.2],
-        'max_depth': [3, 5, 7]
-    }
-}
+# Model initialization
+if model_choice == "Random Forest":
+    base_model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+else:
+    base_model = GradientBoostingRegressor(n_estimators=n_estimators, learning_rate=learning_rate,
+                                           max_depth=max_depth, random_state=42)
 
+# FIX: Wrap in MultiOutputRegressor if y has multiple outputs
+if y_train.ndim > 1 and y_train.shape[1] > 1:
+    model = MultiOutputRegressor(base_model)
+else:
+    model = base_model
+
+# Training and evaluation
 def train_and_evaluate(model, X_train, y_train, X_test, y_test):
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
-    mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
-    rmse = np.sqrt(mean_squared_error(y_test.values.flatten(), y_pred.flatten()))
-    r2 = r2_score(y_test.values.flatten(), y_pred.flatten())
+    
+    # Metrics
+    if y_test.ndim > 1 and y_test.shape[1] > 1:
+        mae = mean_absolute_error(y_test, y_pred, multioutput='raw_values')
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred, multioutput='raw_values'))
+        r2 = [r2_score(y_test.iloc[:, i], y_pred[:, i]) for i in range(y_test.shape[1])]
+    else:
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+
     return y_pred, mae, rmse, r2
 
-metrics = {}
+y_pred, mae, rmse, r2 = train_and_evaluate(model, X_train, y_train, X_test, y_test)
 
-if st.sidebar.button("Train and Compare Models"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    models = {
-        "Random Forest": RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
-        "Gradient Boosting": GradientBoostingRegressor(n_estimators=100, max_depth=3, random_state=42),
-    }
-    for model_name, model in models.items():
-        y_pred, mae, rmse, r2 = train_and_evaluate(model, X_train, y_train, X_test, y_test)
-        metrics[model_name] = {"MAE": mae, "RMSE": rmse, "R²": r2}
-    st.subheader("Model Comparison")
-    st.write(pd.DataFrame(metrics).T)
+# Results
+st.subheader("Model Evaluation Metrics")
+if isinstance(mae, np.ndarray):
+    for i, col in enumerate(y.columns):
+        st.write(f"**{col}**")
+        st.write(f"MAE: {mae[i]:.4f}")
+        st.write(f"RMSE: {rmse[i]:.4f}")
+        st.write(f"R²: {r2[i]:.4f}")
+else:
+    st.write(f"MAE: {mae:.4f}")
+    st.write(f"RMSE: {rmse:.4f}")
+    st.write(f"R²: {r2:.4f}")
 
-if st.sidebar.button("Train Model with Hyperparameter Tuning"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    if model_choice in param_grids:
-        param_grid = param_grids[model_choice]
-        model_cls = RandomForestRegressor if model_choice == "Random Forest" else GradientBoostingRegressor
-        model = model_cls(random_state=42)
-        search = RandomizedSearchCV(model, param_grid, n_iter=10, cv=5, verbose=2, random_state=42, n_jobs=-1)
-        search.fit(X_train, y_train)
-        best_params = search.best_params_
-        best_model = search.best_estimator_
-        y_pred, mae, rmse, r2 = train_and_evaluate(best_model, X_train, y_train, X_test, y_test)
-        st.subheader(f"Best Parameters for {model_choice}: {best_params}")
-        st.write(f"MAE: {mae:.3f}")
-        st.write(f"RMSE: {rmse:.3f}")
-        st.write(f"R² Score: {r2:.3f}")
+# Predictions
+pred_df = pd.DataFrame(y_pred, columns=y.columns)
+st.subheader("Predicted Outputs")
+st.dataframe(pred_df)
 
-        if model_choice in ["Random Forest", "Gradient Boosting"]:
-            explainer = shap.TreeExplainer(best_model)
-            shap_values = explainer.shap_values(X_test)
-            st.subheader(f"SHAP Summary Plot for {model_choice}")
-            shap.summary_plot(shap_values, X_test)
-
-if st.sidebar.button("Show Predictions vs Actual"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = RandomForestRegressor() if model_choice == "Random Forest" else GradientBoostingRegressor()
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    pred_df = pd.DataFrame()
-    for i, col in enumerate(target_cols):
-        pred_df[f"Actual_{col}"] = y_test.iloc[:, i].values
-        pred_df[f"Predicted_{col}"] = y_pred[:, i]
-    st.subheader("Predictions vs Actual (labeled)")
-    st.dataframe(pred_df)
-
-    def energy_efficiency_suggestions(predictions, threshold=0.8):
-        if "energy_consumption" in predictions.columns:
-            high_consumption = predictions["Actual_energy_consumption"] > threshold * predictions["Actual_energy_consumption"].max()
-            if high_consumption.any():
-                st.subheader("Energy Efficiency Suggestions:")
-                st.write("Based on the predictions, the following actions can help reduce energy consumption:")
-                st.write("- Install energy-efficient lighting systems")
-                st.write("- Consider investing in renewable energy sources like solar power")
-                st.write("- Upgrade insulation in buildings to reduce heating/cooling costs")
-            else:
-                st.write("Energy consumption is within expected limits.")
-
-    energy_efficiency_suggestions(pred_df)
-
-if st.sidebar.button("Residual Error Analysis"):
-    model = RandomForestRegressor() if model_choice == "Random Forest" else GradientBoostingRegressor()
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    residuals = y_test.values.flatten() - y_pred.flatten()
-    st.subheader("Residuals vs Predicted")
+# Optional: Plotting
+st.subheader("Prediction vs Actual")
+for col in y.columns:
     fig, ax = plt.subplots()
-    ax.scatter(y_pred, residuals)
-    ax.axhline(0, color='red', linestyle='--')
-    ax.set_xlabel('Predicted')
-    ax.set_ylabel('Residuals')
+    ax.plot(y_test[col].values, label='Actual', marker='o')
+    ax.plot(pred_df[col].values, label='Predicted', marker='x')
+    ax.set_title(col)
+    ax.legend()
     st.pyplot(fig)
+
+# Energy efficiency suggestions
+def energy_efficiency_suggestions(df):
+    st.subheader("Energy Efficiency Suggestions")
+    if 'energy_output' in df.columns and df['energy_output'].mean() < 0.5:
+        st.write("🔋 Consider improving renewable energy integration for higher output.")
+    if 'grid_draw' in df.columns and df['grid_draw'].mean() > 0.7:
+        st.write("⚡ High grid draw detected. Investigate battery storage or load shifting.")
+    if 'cost' in df.columns and df['cost'].mean() > 0.6:
+        st.write("💰 Cost is relatively high. Explore operational optimization strategies.")
+
+energy_efficiency_suggestions(pred_df)
