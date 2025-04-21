@@ -6,12 +6,13 @@ import psutil
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import xgboost as xgb
 import mlflow
 import mlflow.sklearn
-from sklearn.ensemble import RandomForestRegressor, StackingRegressor, GradientBoostingRegressor
+from tpot import TPOTRegressor
+from sklearn.ensemble import RandomForestRegressor, StackingRegressor, GradientBoostingRegressor, VotingRegressor
 from sklearn.neural_network import MLPRegressor
 
 # Page config
@@ -51,6 +52,9 @@ if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
     st.stop()
 
+if 'date' in features:
+    features.remove('date')
+
 # Apply modifications
 data['energy_consumption'] *= modify_inputs
 if outage_sim:
@@ -74,7 +78,7 @@ st.write("Shape of y:", y.shape)
 
 # Sidebar for model training
 st.sidebar.header("🤖 Model Training")
-model_choice = st.sidebar.selectbox("Choose a model", ["Random Forest", "XGBoost", "Stacking", "Deep Learning", "AutoML (TPOT)"])
+model_choice = st.sidebar.selectbox("Choose a model", ["Random Forest", "XGBoost", "Stacking", "Deep Learning", "AutoML (TPOT)", "Voting Regressor"])
 n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
@@ -86,19 +90,29 @@ if st.sidebar.button("Train Model"):
     mlflow.log_param("max_depth", max_depth)
     start_time = time.time()
 
-    # Grid Search for Random Forest
-    param_grid_rf = {
-        'n_estimators': [100, 200, 300],
-        'max_depth': [10, 20, 30],
-        'min_samples_split': [2, 5],
-        'min_samples_leaf': [1, 2]
-    }
-    rf_model = RandomForestRegressor(random_state=42)
-    grid_rf = GridSearchCV(estimator=rf_model, param_grid=param_grid_rf, cv=3, scoring='r2', verbose=2)
-    grid_rf.fit(X_train, y_train)
-    st.write(f"Best Random Forest parameters: {grid_rf.best_params_}")
-
-    model = grid_rf.best_estimator_  # Use the best model from grid search
+    # Model selection and configuration
+    if model_choice == "Random Forest":
+        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    elif model_choice == "XGBoost":
+        model = xgb.XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    elif model_choice == "Stacking":
+        base_models = [
+            ('rf', RandomForestRegressor(n_estimators=100, max_depth=5, random_state=42)),
+            ('gb', GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, random_state=42))
+        ]
+        model = StackingRegressor(estimators=base_models, final_estimator=xgb.XGBRegressor())
+    elif model_choice == "Deep Learning":
+        model = MLPRegressor(hidden_layer_sizes=(100, 50), max_iter=500)
+    elif model_choice == "AutoML (TPOT)":
+        model = TPOTRegressor(generations=5, population_size=20, random_state=42, verbosity=2)
+    elif model_choice == "Voting Regressor":
+        model = VotingRegressor(
+            estimators=[
+                ('rf', RandomForestRegressor(n_estimators=100)),
+                ('xgb', xgb.XGBRegressor(n_estimators=100)),
+                ('gb', GradientBoostingRegressor(n_estimators=100))
+            ]
+        )
 
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
@@ -114,7 +128,6 @@ if st.sidebar.button("Train Model"):
     st.metric("RMSE", f"{np.sqrt(mean_squared_error(y_test, y_pred)):.3f}")
     st.metric("R²", f"{r2_score(y_test, y_pred):.3f}")
 
-    # Feature Importance
     if hasattr(model, 'feature_importances_'):
         feature_importances = model.feature_importances_
         feature_df = pd.DataFrame({"Feature": features, "Importance": feature_importances}).sort_values(by="Importance", ascending=False)
@@ -122,7 +135,7 @@ if st.sidebar.button("Train Model"):
         st.dataframe(feature_df)
         st.bar_chart(feature_df.set_index("Feature"))
 
-    # Predictions vs Actual
+    st.subheader("📉 Predictions vs Actual")
     pred_df = pd.DataFrame({"Actual": y_test.values.flatten(), "Predicted": y_pred.flatten()})
     st.dataframe(pred_df)
     fig, ax = plt.subplots()
@@ -130,6 +143,21 @@ if st.sidebar.button("Train Model"):
     ax.set_xlabel("Actual")
     ax.set_ylabel("Predicted")
     st.pyplot(fig)
+
+    # SHAP Explainability
+    st.subheader("🧠 SHAP Explainability")
+    try:
+        explainer = shap.Explainer(model, X_train)
+        shap_values = explainer(X_test[:100])
+        st_shap = st.empty()
+        st_shap.pyplot(shap.plots.beeswarm(shap_values))
+    except Exception as e:
+        st.warning(f"SHAP explanation failed: {e}")
+
+    # Monitoring System Resources
+    st.sidebar.subheader("🖥️ System Monitoring")
+    st.sidebar.metric("CPU Usage", f"{psutil.cpu_percent()}%")
+    st.sidebar.metric("Memory Usage", f"{psutil.virtual_memory().percent}%")
 
     mlflow.end_run()
 
