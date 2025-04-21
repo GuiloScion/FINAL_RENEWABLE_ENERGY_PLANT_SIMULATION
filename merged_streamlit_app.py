@@ -6,7 +6,7 @@ import psutil
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import xgboost as xgb
 import mlflow
@@ -93,17 +93,40 @@ if st.sidebar.button("Train Model"):
     start_time = time.time()
 
     if model_choice == "Random Forest":
-        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+        # Use GridSearchCV for better hyperparameter tuning
+        param_grid = {
+            'n_estimators': [50, 100, 200],
+            'max_depth': [5, 10, 15],
+            'min_samples_split': [2, 5],
+            'min_samples_leaf': [1, 2],
+        }
+        rf = RandomForestRegressor(random_state=42)
+        grid_search = GridSearchCV(rf, param_grid, cv=5, n_jobs=-1, verbose=2)
+        grid_search.fit(X_train, y_train)
+        model = grid_search.best_estimator_
+
     elif model_choice == "XGBoost":
-        model = xgb.XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+        # Hyperparameter tuning
+        param_grid = {
+            'n_estimators': [100, 200],
+            'max_depth': [5, 10, 15],
+            'learning_rate': [0.01, 0.05, 0.1],
+        }
+        xgb_model = xgb.XGBRegressor(random_state=42)
+        grid_search = GridSearchCV(xgb_model, param_grid, cv=5, n_jobs=-1, verbose=2)
+        grid_search.fit(X_train, y_train)
+        model = grid_search.best_estimator_
+
     elif model_choice == "Stacking":
         base_models = [
             ('rf', RandomForestRegressor(n_estimators=100)),
             ('gb', GradientBoostingRegressor(n_estimators=100))
         ]
         model = StackingRegressor(estimators=base_models, final_estimator=xgb.XGBRegressor())
+
     elif model_choice == "Deep Learning":
-        model = MLPRegressor(hidden_layer_sizes=(100, 50), max_iter=500)
+        model = MLPRegressor(hidden_layer_sizes=(150, 75), max_iter=1000, random_state=42)
+        
     elif model_choice == "AutoML (TPOT)":
         model = TPOTRegressor(generations=5, population_size=20, random_state=42, verbosity=2)
 
