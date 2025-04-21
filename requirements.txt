@@ -9,6 +9,4 @@ shap
 autokeras
 pycaret
 tpot
-rasa
-requests
-rasa-sdk
+psutil
