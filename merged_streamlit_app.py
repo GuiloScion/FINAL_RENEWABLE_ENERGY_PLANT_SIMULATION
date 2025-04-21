@@ -58,7 +58,10 @@ if 'date' in features:
     features.remove('date')
 
 # Apply modifications
-data['energy_consumption'] *= modify_inputs
+if 'energy_consumption' in data.columns:
+    data['energy_consumption'] *= modify_inputs
+else:
+    st.warning("'energy_consumption' column is missing in the uploaded data.")
 if outage_sim:
     data['grid_draw'] = 0
 
@@ -125,7 +128,7 @@ if st.sidebar.button("Train Model"):
     sns.scatterplot(x=pred_df['Actual'], y=pred_df['Predicted'], ax=ax)
     ax.set_xlabel("Actual")
     ax.set_ylabel("Predicted")
-    st.pyplot(fig)  # Explicitly pass the figure here
+    st.pyplot(fig)
 
     # SHAP Explainability
     st.subheader("🧠 SHAP Explainability")
