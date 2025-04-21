@@ -36,7 +36,10 @@ else:
 # Sidebar for feature and target column selection
 st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
+
+# Set default target columns dynamically based on the available columns
+default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
+target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=[col for col in default_target_cols if col in data.columns])
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
@@ -145,5 +148,3 @@ if st.sidebar.button("Train Model"):
     user_input = st.text_input("Ask a question")
     if user_input:
         st.write(f"Model explanation for '{user_input}': The model uses {model_choice} to predict energy output based on the features you've selected.")
-
-
