@@ -6,6 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
+from sklearn.multioutput import MultiOutputRegressor
 import shap
 import time
 
@@ -70,9 +71,14 @@ param_grids = {
 
 # Train the model and evaluate
 def train_and_evaluate(model, X_train, y_train, X_test, y_test):
+    # Wrap model in MultiOutputRegressor if there are multiple targets
+    if y_train.shape[1] > 1:
+        model = MultiOutputRegressor(model)
+    
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
+    # Flatten for metric calculations
     mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
     rmse = np.sqrt(mean_squared_error(y_test.values.flatten(), y_pred.flatten()))
     r2 = r2_score(y_test.values.flatten(), y_pred.flatten())
@@ -81,11 +87,10 @@ def train_and_evaluate(model, X_train, y_train, X_test, y_test):
 
 # Model comparison
 metrics = {}
-models = {}
 
 if st.sidebar.button("Train and Compare Models"):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
+    
     models = {
         "Random Forest": RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
         "Gradient Boosting": GradientBoostingRegressor(n_estimators=100, max_depth=3, random_state=42),
@@ -94,7 +99,7 @@ if st.sidebar.button("Train and Compare Models"):
     for model_name, model in models.items():
         y_pred, mae, rmse, r2 = train_and_evaluate(model, X_train, y_train, X_test, y_test)
         metrics[model_name] = {"MAE": mae, "RMSE": rmse, "R²": r2}
-
+    
     # Display model comparison
     metrics_df = pd.DataFrame(metrics).T
     st.subheader("Model Comparison")
@@ -103,7 +108,8 @@ if st.sidebar.button("Train and Compare Models"):
 # Hyperparameter tuning
 if st.sidebar.button("Train Model with Hyperparameter Tuning"):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
+    
+    # Set up GridSearchCV or RandomizedSearchCV
     if model_choice in param_grids:
         param_grid = param_grids[model_choice]
         if model_choice == "Random Forest":
@@ -113,7 +119,7 @@ if st.sidebar.button("Train Model with Hyperparameter Tuning"):
 
         search = RandomizedSearchCV(model, param_grid, n_iter=10, cv=5, verbose=2, random_state=42, n_jobs=-1)
         search.fit(X_train, y_train)
-
+        
         best_params = search.best_params_
         best_model = search.best_estimator_
 
@@ -124,19 +130,19 @@ if st.sidebar.button("Train Model with Hyperparameter Tuning"):
         st.write(f"RMSE: {rmse:.3f}")
         st.write(f"R² Score: {r2:.3f}")
 
-        # SHAP explainability
+        # SHAP explainability (only for tree-based models)
         if model_choice in ["Random Forest", "Gradient Boosting"]:
-            explainer = shap.Explainer(best_model)
-            shap_values = explainer(X_test)
+            explainer = shap.TreeExplainer(best_model)
+            shap_values = explainer.shap_values(X_test)
 
+            # Plot SHAP summary plot
             st.subheader(f"SHAP Summary Plot for {model_choice}")
-            shap.summary_plot(shap_values, X_test, show=False)
-            st.pyplot(bbox_inches='tight')
+            shap.summary_plot(shap_values, X_test)
 
 # Show predictions vs actual (labeled)
 if st.sidebar.button("Show Predictions vs Actual"):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = models.get(model_choice, RandomForestRegressor())
+    model = models.get(model_choice, RandomForestRegressor())  # Default to RandomForest
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
@@ -148,32 +154,15 @@ if st.sidebar.button("Show Predictions vs Actual"):
     st.subheader("Predictions vs Actual (labeled)")
     st.dataframe(pred_df)
 
-    # Energy efficiency suggestions
-    def energy_efficiency_suggestions(predictions, threshold=0.8):
-        if "energy_consumption" in predictions.columns:
-            high_consumption = predictions["Actual_energy_consumption"] > threshold * predictions["Actual_energy_consumption"].max()
-            if high_consumption.any():
-                st.subheader("Energy Efficiency Suggestions:")
-                st.write("Based on the predictions, the following actions can help reduce energy consumption:")
-                st.write("- Install energy-efficient lighting systems")
-                st.write("- Consider investing in renewable energy sources like solar power")
-                st.write("- Upgrade insulation in buildings to reduce heating/cooling costs")
-            else:
-                st.write("Energy consumption is within expected limits.")
-
-    energy_efficiency_suggestions(pred_df)
-
 # Residual error analysis
 if st.sidebar.button("Residual Error Analysis"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = models.get(model_choice, RandomForestRegressor())
-    model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
-    residuals = y_test.values.flatten() - y_pred.flatten()
+    residuals = y_test - y_pred
 
     st.subheader("Residuals vs Predicted")
+    st.write("A residual plot helps us identify non-random patterns in the errors of the model.")
     fig, ax = plt.subplots()
-    ax.scatter(y_pred.flatten(), residuals)
+    ax.scatter(y_pred, residuals)
     ax.axhline(0, color='red', linestyle='--')
     ax.set_xlabel('Predicted')
     ax.set_ylabel('Residuals')
@@ -185,3 +174,17 @@ if st.sidebar.button("Model Summary"):
     st.write("This is a simple model summary, showing key metrics and the hyperparameters used for training.")
     st.write(f"Model Type: {model_choice}")
     st.write(f"Hyperparameters: {param_grids.get(model_choice, {})}")
+
+# Energy efficiency suggestions
+def energy_efficiency_suggestions(predictions, threshold=0.8):
+    high_consumption = predictions["energy_consumption"] > threshold * predictions["energy_consumption"].max()
+    if high_consumption.any():
+        st.subheader("Energy Efficiency Suggestions:")
+        st.write("Based on the predictions, the following actions can help reduce energy consumption:")
+        st.write("- Install energy-efficient lighting systems")
+        st.write("- Consider investing in renewable energy sources like solar power")
+        st.write("- Upgrade insulation in buildings to reduce heating/cooling costs")
+    else:
+        st.write("Energy consumption is within expected limits.")
+        
+energy_efficiency_suggestions(pred_df)
