@@ -11,7 +11,7 @@ import mlflow.sklearn
 from tpot import TPOTRegressor
 import os
 import shap
-from sklearn.ensemble import RandomForestRegressor  # Ensure this import is included
+from sklearn.ensemble import RandomForestRegressor
 
 # Page config
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
@@ -60,14 +60,6 @@ model_choice = st.sidebar.selectbox("Choose a model", ["Random Forest", "XGBoost
 n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
-# Debugging output for model_choice
-st.write(f"Model Choice: {model_choice}")  # Debug line to confirm the selected model
-
-# Validate model_choice
-if model_choice not in ["Random Forest", "XGBoost", "AutoML (TPOT)"]:
-    st.error(f"Invalid model choice: {model_choice}")
-    st.stop()  # Stops execution if model_choice is invalid
-
 # Train the model when button is clicked
 if st.sidebar.button("Train Model"):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -76,7 +68,10 @@ if st.sidebar.button("Train Model"):
     mlflow.start_run()
     mlflow.log_param("model_choice", model_choice)
     mlflow.log_param("n_estimators", n_estimators)
-    mlflow.log_param("max_depth", max_depth)
+
+    # Log max_depth only if it's applicable (e.g., Random Forest or XGBoost)
+    if model_choice in ["Random Forest", "XGBoost"]:
+        mlflow.log_param("max_depth", max_depth)
 
     # Timer to track model training time
     start_time = time.time()
