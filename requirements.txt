@@ -11,3 +11,4 @@ pycaret
 tpot
 psutil
 folium
+torch
