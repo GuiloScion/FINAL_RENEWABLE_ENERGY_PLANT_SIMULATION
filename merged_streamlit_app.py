@@ -34,38 +34,45 @@ else:
     st.warning("Please upload a CSV file to proceed.")
     st.stop()
 
+# Check available columns in the dataset
+st.write("Available Columns in Dataset:", data.columns.tolist())
+
 # Sidebar feature/target selection
 st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
+target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
 
-# Check the available columns before setting the default values
-available_columns = data.columns.tolist()
+# Handle missing target columns by checking if they exist in the dataset
+missing_cols = [col for col in target_cols if col not in data.columns]
+if missing_cols:
+    st.warning(f"The following target columns are missing from the data: {', '.join(missing_cols)}")
+    
+    # Example: Add logic to create missing columns
+    if 'energy_output' in missing_cols:
+        # Assuming energy_output can be calculated by summing different energy sources (adjust as necessary)
+        if 'solar_output' in data.columns and 'wind_output' in data.columns and 'geothermal_output' in data.columns:
+            data['energy_output'] = data['solar_output'] + data['wind_output'] + data['geothermal_output']  # Adjust column names as necessary
+        else:
+            st.warning("Required columns for calculating energy_output are missing.")
+    
+    if 'co2_captured' in missing_cols:
+        # Assuming CO2 captured is a simple function of energy output (replace with actual logic)
+        if 'energy_output' in data.columns:
+            emission_factor = 0.5  # Example: adjust emission factor
+            data['co2_captured'] = data['energy_output'] * emission_factor
+        else:
+            st.warning("energy_output is missing, unable to calculate co2_captured.")
+            
+    # Recheck if missing columns were created
+    missing_cols = [col for col in target_cols if col not in data.columns]
+    if missing_cols:
+        st.error(f"Some target columns are still missing: {', '.join(missing_cols)}")
+        st.stop()
 
-# Debug: Print out available columns
-st.write("Available Columns:", available_columns)
-
-# Default target columns
-default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
-valid_default_target_cols = [col for col in default_target_cols if col in available_columns]
-
-# Let the user know if any defaults are missing
-if len(valid_default_target_cols) != len(default_target_cols):
-    missing_cols = set(default_target_cols) - set(valid_default_target_cols)
-    st.warning(f"The following default target columns are missing from the data: {', '.join(missing_cols)}")
-
-# Set the multiselect widget with the valid columns
-target_cols = st.sidebar.multiselect(
-    "Select target columns", 
-    available_columns, 
-    default=valid_default_target_cols
-)
-
-# Ensure at least one target column is selected
-if not target_cols:
-    st.error("Please select at least one target column.")
+if not features or not target_cols:
+    st.error("Please select at least one feature and one target column.")
     st.stop()
 
-# Remove 'date' from features if it is included
 if 'date' in features:
     features.remove('date')
 
@@ -87,7 +94,6 @@ if st.sidebar.button("Train Model"):
     # Start time
     start_time = time.time()
 
-    # Model selection
     if model_choice == "Random Forest":
         model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
     elif model_choice == "Gradient Boosting":
@@ -98,7 +104,6 @@ if st.sidebar.button("Train Model"):
     model.fit(X_train, y_train)
     training_time = time.time() - start_time
 
-    # Model predictions
     y_pred = model.predict(X_test)
     mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
     rmse = np.sqrt(mean_squared_error(y_test.values.flatten(), y_pred.flatten()))
