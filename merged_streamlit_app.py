@@ -17,23 +17,32 @@ import logging
 import joblib
 from datetime import datetime
 from scipy.stats import shapiro
-import shap
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Set up Streamlit configuration
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide", initial_sidebar_state="expanded")
-st.title("🔋 Renewable Energy Production Predictor")
 
-# Sidebar: Dark Mode
-enable_dark_mode = st.sidebar.checkbox("Enable Dark Mode")
-if enable_dark_mode:
+# Language Support
+lang = st.sidebar.selectbox("Change Language", ["English", "Español", "Français", "Deutsch"])
+if lang == "Español":
+    st.title("🔋 Predicción de Producción de Energía Renovable")
+elif lang == "Français":
+    st.title("🔋 Prédiction de la Production d'Énergie Renouvelable")
+elif lang == "Deutsch":
+    st.title("🔋 Vorhersage der Produktion Erneuerbarer Energien")
+else:
+    st.title("🔋 Renewable Energy Production Predictor")
+
+# Sidebar: Light Mode Toggle
+light_mode = st.sidebar.checkbox("Enable Light Mode", value=True)
+if light_mode:
     st.markdown("""
         <style>
         body {
-            background-color: #2E2E2E;
-            color: #FFFFFF;
+            background-color: #FFFFFF;
+            color: #000000;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -84,29 +93,6 @@ def preprocess_data(data: pd.DataFrame, features: list, target_cols: list):
     except Exception as e:
         st.error(f"Error during preprocessing: {e}")
         return None, None, None
-
-# Helper function for real-time predictions
-def predict_new_data(model, scaler, input_data):
-    try:
-        if not input_data:
-            st.warning("Please provide values for all features.")
-            return None
-        input_array = np.array(input_data).reshape(1, -1)
-        scaled_input = scaler.transform(input_array)
-        prediction = model.predict(scaled_input)
-        return prediction
-    except Exception as e:
-        st.error(f"Error during prediction: {e}")
-        return None
-
-# Function to display SHAP explanations
-def display_shap_explanations(model, X_train, feature_names):
-    explainer = shap.Explainer(model, X_train)
-    shap_values = explainer(X_train)
-
-    st.subheader("🔍 SHAP Feature Importance")
-    shap.summary_plot(shap_values, X_train, feature_names=feature_names, plot_type="bar")
-    st.pyplot(bbox_inches='tight')
 
 if uploaded_file is not None:
     logging.info("File uploaded successfully.")
@@ -209,10 +195,6 @@ if st.sidebar.button("Train Model"):
             importance_df = pd.DataFrame({'Feature': features, 'Importance': model.feature_importances_}).sort_values(by="Importance", ascending=False)
             st.dataframe(importance_df)
 
-        # SHAP Explanations
-        if model_choice in ["Random Forest", "Gradient Boosting", "XGBoost"]:
-            display_shap_explanations(model, X_train, features)
-
         st.subheader("📋 Predictions vs Actual")
         pred_df = pd.DataFrame({"Actual": y_test.values.flatten(), "Predicted": y_pred.flatten()})
         st.dataframe(pred_df)
@@ -241,11 +223,3 @@ if st.sidebar.button("Train Model"):
         st.write(f"CPU Usage: {psutil.cpu_percent()}%")
         st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
         st.write(f"System Platform: {platform.system()} {platform.release()}")
-
-        # Real-Time Prediction Section
-        st.sidebar.subheader("Real-Time Predictions")
-        input_data = [st.sidebar.number_input(f"Enter {feature}", value=0.0) for feature in features]
-        if st.sidebar.button("Predict"):
-            prediction = predict_new_data(model, scaler, input_data)
-            if prediction is not None:
-                st.sidebar.write(f"Prediction: {prediction[0]:.3f}")
