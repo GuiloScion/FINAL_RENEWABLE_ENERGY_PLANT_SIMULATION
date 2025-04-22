@@ -183,7 +183,8 @@ def chatbot_response(user_input):
 if user_input:
     response = chatbot_response(user_input)
     st.session_state.chat_history.append({"user": user_input, "response": response})
-    st.session_state.user_input = ""  # Clear input after submission
+    # Instead of modifying st.session_state.user_input, use a separate variable
+    user_input = ""  # Clear input after submission
 
 # Display chat history
 st.sidebar.subheader("Chat History")
