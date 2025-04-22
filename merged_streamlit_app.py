@@ -157,6 +157,8 @@ if st.sidebar.button("Train Model"):
 st.sidebar.header("🤖 Chatbot")
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []  # Initialize chat history as an empty list
+if 'user_input' not in st.session_state:
+    st.session_state.user_input = ""
 
 user_input = st.sidebar.text_input("Ask me about the model:", key="user_input")
 
@@ -184,12 +186,11 @@ if user_input:
     response = chatbot_response(user_input)
     st.session_state.chat_history.append({"user": user_input, "response": response})
     # Clear the input after submission
-    st.session_state.user_input = ""  # Use st.session_state to clear the input
+    st.session_state.user_input = ""
 
 # Display chat history
 st.sidebar.subheader("Chat History")
 for chat in st.session_state.chat_history:
-    # Ensure "user" and "response" exist in each dictionary
     user_text = chat.get("user", "N/A")
     response_text = chat.get("response", "N/A")
     st.sidebar.text_area("User:", user_text, height=50, disabled=True)
