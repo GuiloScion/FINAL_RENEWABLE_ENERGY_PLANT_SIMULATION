@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
@@ -17,13 +18,33 @@ import joblib
 from datetime import datetime
 from scipy.stats import shapiro
 import os
+from sklearn.linear_model import LinearRegression
+from sklearn.svm import SVR
+import shap
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Set up Streamlit configuration
-st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
+st.set_page_config(page_title="Renewable Energy Predictor", layout="wide", initial_sidebar_state="expanded")
 st.title("🔋 Renewable Energy Production Predictor")
+
+# Sidebar: Dark Mode
+enable_dark_mode = st.sidebar.checkbox("Enable Dark Mode")
+if enable_dark_mode:
+    st.markdown("""
+        <style>
+        body {
+            background-color: #2E2E2E;
+            color: #FFFFFF;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+# Sidebar: Multilingual Support
+language = st.sidebar.selectbox("Select Language", ["English", "Español", "Français", "Deutsch"])
+if language != "English":
+    st.warning("Multilingual support is under development. Current language: English.")
 
 # Sidebar: Project Resources
 st.sidebar.markdown("### Project Resources")
@@ -42,7 +63,6 @@ with st.sidebar.expander("Upload Data", expanded=True):
 @st.cache_data
 def load_data(file) -> pd.DataFrame:
     try:
-        # Validate file content
         if file is None or not file.name.endswith('.csv'):
             raise ValueError("Uploaded file is not a valid CSV.")
         data = pd.read_csv(file)
@@ -56,26 +76,41 @@ def load_data(file) -> pd.DataFrame:
 # Function to preprocess data
 def preprocess_data(data: pd.DataFrame, features: list, target_cols: list):
     try:
-        # Handle missing values
         if data.isnull().any().any():
             st.warning("Data contains missing values. Consider cleaning the data.")
             data = data.dropna()
 
-        # Remove 'date' column from features if it exists
         if 'date' in features:
             features.remove('date')
 
-        # Scale features
         scaler = MinMaxScaler()
         scaled_features = scaler.fit_transform(data[features])
         X = pd.DataFrame(scaled_features, columns=features)
 
-        # Scale target if needed
         y = data[target_cols] if len(target_cols) > 1 else data[target_cols[0]]
         return X, y, scaler
     except Exception as e:
         st.error(f"Error during preprocessing: {e}")
         return None, None, None
+
+# Helper function for real-time predictions
+def predict_new_data(model, scaler, input_data):
+    try:
+        scaled_input = scaler.transform([input_data])
+        prediction = model.predict(scaled_input)
+        return prediction
+    except Exception as e:
+        st.error(f"Error during prediction: {e}")
+        return None
+
+# Function to display SHAP explanations
+def display_shap_explanations(model, X_train, feature_names):
+    explainer = shap.Explainer(model, X_train)
+    shap_values = explainer(X_train)
+
+    st.subheader("🔍 SHAP Feature Importance")
+    shap.summary_plot(shap_values, X_train, feature_names=feature_names, plot_type="bar")
+    st.pyplot(bbox_inches='tight')
 
 if uploaded_file is not None:
     logging.info("File uploaded successfully.")
@@ -88,6 +123,13 @@ if uploaded_file is not None:
 
     st.subheader("Raw Data")
     st.dataframe(data)
+
+    # Interactive Visualization
+    st.subheader("📊 Data Visualization")
+    selected_column = st.selectbox("Select a column to visualize", data.columns)
+    fig = px.histogram(data, x=selected_column, title=f"Distribution of {selected_column}")
+    st.plotly_chart(fig)
+
 else:
     logging.warning("No file uploaded.")
     st.warning("Please upload a CSV file to proceed.")
@@ -100,8 +142,6 @@ with st.sidebar.expander("Feature Selection", expanded=True):
 
 # Define default target columns
 default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
-
-# Ensure default target columns exist in the dataset
 available_target_cols = [col for col in default_target_cols if col in data.columns]
 
 # Sidebar: Target Selection
@@ -112,7 +152,6 @@ if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
     st.stop()
 
-# Preprocess data
 X, y, scaler = preprocess_data(data, features, target_cols)
 if X is None or y is None:
     st.stop()
@@ -120,16 +159,15 @@ if X is None or y is None:
 # Sidebar: Model Training Parameters
 with st.sidebar.expander("Model Training", expanded=True):
     st.sidebar.header("Model Training")
-    model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost"])
-    n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
-    max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
+    model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "Linear Regression", "Support Vector Machine (SVM)"])
+    n_estimators = st.sidebar.slider("Number of Trees (for Tree-based Models)", 10, 200, 100)
+    max_depth = st.sidebar.slider("Max Depth (for Tree-based Models)", 1, 20, 10)
 
 # Train the model if button is clicked
 if st.sidebar.button("Train Model"):
     with st.spinner("Training model..."):
         logging.info(f"Model training started using {model_choice}.")
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
         start_time = time.time()
 
         try:
@@ -137,16 +175,18 @@ if st.sidebar.button("Train Model"):
                 model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
             elif model_choice == "Gradient Boosting":
                 model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-            else:
+            elif model_choice == "XGBoost":
                 model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+            elif model_choice == "Linear Regression":
+                model = LinearRegression()
+            elif model_choice == "Support Vector Machine (SVM)":
+                model = SVR()
 
-            # Cross-validation for model evaluation
-            st.subheader("🔄 Cross-Validation Scores")
             cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='r2')
+            st.subheader("🔄 Cross-Validation Scores")
             st.write("Cross-validation R² scores:", cv_scores)
             st.write("Mean R² score:", np.mean(cv_scores))
 
-            # Train model
             model.fit(X_train, y_train)
         except Exception as e:
             logging.error(f"Error during model training: {e}")
@@ -156,42 +196,34 @@ if st.sidebar.button("Train Model"):
         training_time = time.time() - start_time
         logging.info("Model training completed.")
 
-        # Save trained model with versioning
         model_filename = f"trained_model_{model_choice}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.joblib"
         joblib.dump(model, model_filename)
         st.success(f"Model saved as {model_filename}")
-        logging.info(f"Model saved as {model_filename}")
 
-        # Model evaluation
         y_pred = model.predict(X_test)
         mae = mean_absolute_error(y_test, y_pred)
         rmse = np.sqrt(mean_squared_error(y_test, y_pred))
         r2 = r2_score(y_test, y_pred)
 
         st.subheader("Model Evaluation")
-        st.metric("🧮 MAE", f"{mae:.3f}", help="Mean Absolute Error: Measures average magnitude of errors in predictions.")
-        st.metric("📉 RMSE", f"{rmse:.3f}", help="Root Mean Squared Error: Measures the square root of average squared differences between observed and predicted values.")
-        st.metric("📈 R² Score", f"{r2:.3f}", help="R² Score: Indicates how well the model explains variability in the target variable.")
-        st.metric("⏱️ Training Time", f"{training_time:.2f} seconds", help="Time taken to train the model.")
+        st.metric("🧮 MAE", f"{mae:.3f}")
+        st.metric("📉 RMSE", f"{rmse:.3f}")
+        st.metric("📈 R² Score", f"{r2:.3f}")
+        st.metric("⏱️ Training Time", f"{training_time:.2f} seconds")
 
-        # Feature Importances
         if hasattr(model, "feature_importances_"):
             st.subheader("🔍 Feature Importances")
-            importance_df = pd.DataFrame({
-                'Feature': features,
-                'Importance': model.feature_importances_
-            }).sort_values(by="Importance", ascending=False)
+            importance_df = pd.DataFrame({'Feature': features, 'Importance': model.feature_importances_}).sort_values(by="Importance", ascending=False)
             st.dataframe(importance_df)
 
-        # Predictions Table
+        # SHAP Explanations
+        if model_choice in ["Random Forest", "Gradient Boosting", "XGBoost"]:
+            display_shap_explanations(model, X_train, features)
+
         st.subheader("📋 Predictions vs Actual")
-        pred_df = pd.DataFrame({
-            "Actual": y_test.values.flatten(),
-            "Predicted": y_pred.flatten()
-        })
+        pred_df = pd.DataFrame({"Actual": y_test.values.flatten(), "Predicted": y_pred.flatten()})
         st.dataframe(pred_df)
 
-        # Scatter plot for predictions vs actual
         st.subheader("📈 Predictions vs Actual Scatter Plot")
         fig, ax = plt.subplots()
         ax.scatter(pred_df["Actual"], pred_df["Predicted"], alpha=0.7, label="Predictions")
@@ -202,7 +234,6 @@ if st.sidebar.button("Train Model"):
         ax.legend()
         st.pyplot(fig)
 
-        # Residual Analysis
         st.subheader("Residual Error Analysis")
         residuals = y_test.values.flatten() - y_pred.flatten()
         fig, ax = plt.subplots()
@@ -210,12 +241,17 @@ if st.sidebar.button("Train Model"):
         ax.set_title("Residuals Distribution")
         st.pyplot(fig)
 
-        # Shapiro-Wilk test for normality of residuals
         shapiro_stat, shapiro_p = shapiro(residuals)
         st.write(f"Shapiro-Wilk Test: Statistic={shapiro_stat:.3f}, p-value={shapiro_p:.3f}")
 
-        # System Resource Usage
         st.subheader("⚙️ System Resource Usage")
         st.write(f"CPU Usage: {psutil.cpu_percent()}%")
         st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
         st.write(f"System Platform: {platform.system()} {platform.release()}")
+
+        # Real-Time Prediction
+        st.sidebar.subheader("Real-Time Predictions")
+        input_data = [st.sidebar.number_input(f"Enter {feature}", value=0.0) for feature in features]
+        if st.sidebar.button("Predict"):
+            prediction = predict_new_data(model, scaler, input_data)
+            st.sidebar.write("Prediction:", prediction)
