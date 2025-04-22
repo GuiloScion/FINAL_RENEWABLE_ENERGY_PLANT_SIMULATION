@@ -73,30 +73,32 @@ model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient 
 n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
-if st.sidebar.button("Train Model"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Optimization Button for AutoML
+automl_button = st.sidebar.button("Train AutoML Model")
 
-    # Start time
+if automl_button:
+    # Start time for training
     start_time = time.time()
 
-    if model_choice == "Random Forest":
-        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "Gradient Boosting":
-        model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "XGBoost":
-        from xgboost import XGBRegressor
-        model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "AutoML":
-        model = TPOTRegressor( generations=5, population_size=20, random_state=42, n_jobs=-1)
+    # Split the dataset into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+    # Initialize AutoML model
+    model = TPOTRegressor(generations=5, population_size=20, random_state=42, n_jobs=-1)
+
+    # Fit the AutoML model
     model.fit(X_train, y_train)
     training_time = time.time() - start_time
 
+    # Predict with the trained model
     y_pred = model.predict(X_test)
+
+    # Evaluate the model
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     r2 = r2_score(y_test, y_pred)
 
+    # Display model evaluation metrics
     st.subheader("Model Evaluation")
     st.metric("🧮 MAE", f"{mae:.3f}")
     st.metric("📉 RMSE", f"{rmse:.3f}")
@@ -114,7 +116,7 @@ if st.sidebar.button("Train Model"):
     # Model summary report
     st.subheader("📊 Model Summary Report")
     report_data = {
-        "Model": model_choice,
+        "Model": "AutoML (TPOT)",
         "MAE": mae,
         "RMSE": rmse,
         "R²": r2,
