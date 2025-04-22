@@ -43,7 +43,7 @@ if uploaded_file is not None:
     data = load_data(uploaded_file)
     st.subheader("Raw Data")
     st.dataframe(data)
- else:
+else:
     st.warning("Please upload a CSV file to proceed.")
     st.stop()
  
