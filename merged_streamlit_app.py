@@ -34,40 +34,23 @@ else:
     st.warning("Please upload a CSV file to proceed.")
     st.stop()
 
-# Check available columns in the dataset
-st.write("Available Columns in Dataset:", data.columns.tolist())
-
 # Sidebar feature/target selection
 st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
+
+# Define the default target columns that should be present
+default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
+
+# Ensure the default columns exist in the data
+available_target_cols = [col for col in default_target_cols if col in data.columns]
+
+# If no target columns are selected, default to available ones
+target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=available_target_cols)
 
 # Handle missing target columns by checking if they exist in the dataset
 missing_cols = [col for col in target_cols if col not in data.columns]
 if missing_cols:
     st.warning(f"The following target columns are missing from the data: {', '.join(missing_cols)}")
-    
-    # Example: Add logic to create missing columns
-    if 'energy_output' in missing_cols:
-        # Assuming energy_output can be calculated by summing different energy sources (adjust as necessary)
-        if 'solar_output' in data.columns and 'wind_output' in data.columns and 'geothermal_output' in data.columns:
-            data['energy_output'] = data['solar_output'] + data['wind_output'] + data['geothermal_output']  # Adjust column names as necessary
-        else:
-            st.warning("Required columns for calculating energy_output are missing.")
-    
-    if 'co2_captured' in missing_cols:
-        # Assuming CO2 captured is a simple function of energy output (replace with actual logic)
-        if 'energy_output' in data.columns:
-            emission_factor = 0.5  # Example: adjust emission factor
-            data['co2_captured'] = data['energy_output'] * emission_factor
-        else:
-            st.warning("energy_output is missing, unable to calculate co2_captured.")
-            
-    # Recheck if missing columns were created
-    missing_cols = [col for col in target_cols if col not in data.columns]
-    if missing_cols:
-        st.error(f"Some target columns are still missing: {', '.join(missing_cols)}")
-        st.stop()
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
