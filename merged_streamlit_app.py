@@ -192,13 +192,7 @@ if st.sidebar.button("Train Model"):
         st.write(f"CPU Usage: {psutil.cpu_percent()}%")
         st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
         st.write(f"System Platform: {platform.system()} {platform.release()}")
-
-        if torch.cuda.is_available():
-            st.write(f"GPU: {torch.cuda.get_device_name(0)}")
-            st.write(f"GPU Memory Usage: {torch.cuda.memory_allocated(0) / 1024**2:.2f} MB")
-        else:
-            st.write("GPU: Not Available")
-
+        
         # TensorFlow GPU check
         try:
             import tensorflow as tf
