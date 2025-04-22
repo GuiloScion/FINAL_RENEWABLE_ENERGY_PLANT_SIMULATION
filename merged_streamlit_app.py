@@ -20,7 +20,6 @@ n_estimators = st.sidebar.slider("Number of Estimators", 50, 500, 100, 10)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 5)
 
 # --- Original Code Starts Here (Unmodified) ---
-random_state=42)
 else:
     model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
 
