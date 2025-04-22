@@ -164,6 +164,15 @@ if st.sidebar.button("Train Model"):
         st.success(f"Model saved as {model_filename}")
         logging.info(f"Model saved as {model_filename}")
 
+        # Add a download button for the model
+        with open(model_filename, "rb") as file:
+            st.download_button(
+                label="📥 Download Trained Model",
+                data=file,
+                file_name=model_filename,
+                mime="application/octet-stream"
+            )
+
         # Model evaluation
         y_pred = model.predict(X_test)
         mae = mean_absolute_error(y_test, y_pred)
