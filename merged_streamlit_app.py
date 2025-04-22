@@ -34,10 +34,20 @@ else:
     st.warning("Please upload a CSV file to proceed.")
     st.stop()
 
+# Debug: Check column names
+st.write("Available Columns:", data.columns.tolist())
+st.write("Default Target Columns:", ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
+
 # Sidebar feature/target selection
 st.sidebar.header("Feature Selection")
 features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
 target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"])
+
+# Check if the target columns are in data.columns
+for col in target_cols:
+    if col not in data.columns.tolist():
+        st.error(f"Column '{col}' is not found in the data.")
+        st.stop()
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
