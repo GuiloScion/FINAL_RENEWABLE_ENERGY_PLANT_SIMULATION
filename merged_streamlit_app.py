@@ -1,3 +1,4 @@
+# Importing necessary libraries
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,17 +6,15 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from xgboost import XGBRegressor
 import time
-import datetime
 import seaborn as sns
 import psutil
 import platform
 import logging
 import joblib
 from datetime import datetime
-from sklearn.model_selection import cross_val_score
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -39,28 +38,32 @@ with st.sidebar.expander("Upload Data", expanded=True):
 
 @st.cache_data
 def load_data(file: str) -> pd.DataFrame:
+    """Load the dataset from a CSV file."""
     try:
         data = pd.read_csv(file)
+        logging.info(f"Data loaded successfully with shape {data.shape}.")
         return data
     except Exception as e:
         st.error(f"Error reading the file: {e}")
+        logging.error(f"Error reading the file: {e}")
         return pd.DataFrame()
+
+# Default dataset for demonstration
+demo_data_path = "default_dataset.csv"
 
 if uploaded_file is not None:
     logging.info("File uploaded successfully.")
     data = load_data(uploaded_file)
-    logging.info("Data loaded successfully.")
-
-    if data.empty:
-        st.error("Uploaded file is empty or invalid. Please upload a valid CSV.")
-        st.stop()
-
-    st.subheader("Raw Data")
-    st.dataframe(data)
 else:
-    logging.warning("No file uploaded.")
-    st.warning("Please upload a CSV file to proceed.")
+    st.warning("No file uploaded. Using default demonstration dataset.")
+    data = load_data(demo_data_path)
+
+if data.empty:
+    st.error("Dataset is empty or invalid. Please upload a valid CSV.")
     st.stop()
+
+st.subheader("Raw Data")
+st.dataframe(data)
 
 # Sidebar: Feature Selection
 with st.sidebar.expander("Feature Selection", expanded=True):
@@ -188,7 +191,7 @@ if st.sidebar.button("Train Model"):
         st.pyplot(fig)
 
         # System Resource Usage
-        st.subheader("⚙️ System Resource Usage")
-        st.write(f"CPU Usage: {psutil.cpu_percent()}%")
-        st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
-        st.write(f"System Platform: {platform.system()} {platform.release()}")
+        with st.expander("⚙️ System Resource Usage"):
+            st.write(f"CPU Usage: {psutil.cpu_percent()}%")
+            st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
+            st.write(f"System Platform: {platform.system()} {platform.release()}")
