@@ -156,7 +156,7 @@ if st.sidebar.button("Train Model"):
 # Chatbot Section
 st.sidebar.header("🤖 Chatbot")
 if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
+    st.session_state.chat_history = []  # Initialize chat history as an empty list
 
 user_input = st.sidebar.text_input("Ask me about the model:", key="user_input")
 
@@ -178,16 +178,19 @@ def chatbot_response(user_input):
     for key, response in responses.items():
         if key in user_input:
             return response
-    return "I'm sorry, I can only answer questions about the model, its predictions, and related topics. Please ask something specific!"
+    return "I'm sorry, I can only answer questions about the model, its predictions, and related topics. Please ask something related to the model!"
 
 if user_input:
     response = chatbot_response(user_input)
     st.session_state.chat_history.append({"user": user_input, "response": response})
-    # Instead of modifying st.session_state.user_input, use a separate variable
-    user_input = ""  # Clear input after submission
+    # Clear the input after submission
+    st.session_state.user_input = ""  # Use st.session_state to clear the input
 
 # Display chat history
 st.sidebar.subheader("Chat History")
 for chat in st.session_state.chat_history:
-    st.sidebar.text_area("User:", chat["user"], height=50, disabled=True)
-    st.sidebar.text_area("Response:", chat["response"], height=50, disabled=True)
+    # Ensure "user" and "response" exist in each dictionary
+    user_text = chat.get("user", "N/A")
+    response_text = chat.get("response", "N/A")
+    st.sidebar.text_area("User:", user_text, height=50, disabled=True)
+    st.sidebar.text_area("Response:", response_text, height=50, disabled=True)
