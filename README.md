@@ -5,30 +5,16 @@ This Streamlit app is designed to simulate and predict key performance indicator
 Real-time predictions using trained machine learning models
 Interactive visualizations and dashboards
 Downloadable results and prediction logs
-SHAP-based model explainability (optional)
 Simple and intuitive UI with Streamlit
+
 ⚙️ Technologies Used
 Python 3.10+
 Streamlit
 Pandas, NumPy
 Scikit-learn
 Matplotlib / Seaborn
-SHAP, XGBoost (if included)
+XGBoost, RandomForest, Gradient Boosting Regressors
 Joblib for model persistence
-📁 Project Structure
-.
-├── streamlit_app.py        # Main Streamlit app
-├── requirements.txt        # Dependencies for Streamlit Cloud
-└── README.md               # You're reading it!
-🧪 How to Run Locally
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/renewable-energy-app.git
-cd renewable-energy-app
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the app
 streamlit run streamlit_app.py
 🌐 Deploy on Streamlit Cloud
 Push this repository to GitHub.
