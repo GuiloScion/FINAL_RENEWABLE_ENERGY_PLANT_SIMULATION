@@ -19,12 +19,16 @@ import shap
 from sklearn.ensemble import IsolationForest
 import mlflow
 
+# Ensure the mlruns directory exists, create if necessary
+mlruns_dir = './mlruns'
+os.makedirs(mlruns_dir, exist_ok=True)
+
+# Set MLflow tracking URI
+mlflow.set_tracking_uri(f"file://{mlruns_dir}")
+mlflow.set_experiment("Renewable_Simulation")
+
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
 st.title("🔋 Renewable Energy Production Predictor")
-
-# Initialize MLflow
-mlflow.set_tracking_uri("file://./mlruns")
-mlflow.set_experiment("Renewable_Simulation")
 
 # Sidebar for real‑time weather & location
 st.sidebar.header("Location & Weather")
