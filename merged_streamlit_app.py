@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
@@ -36,21 +37,28 @@ else:
 
 # Sidebar feature/target selection
 st.sidebar.header("Feature Selection")
-features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
+features = st.sidebar.multiselect(
+    "Select features for prediction",
+    data.columns.tolist(),
+    default=data.columns.tolist()[:-1]
+)
 
-# Define the default target columns that should be present
-default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
+# Default target columns
+default_target_cols = [
+    "cost_per_kWh", "energy_consumption", "energy_output",
+    "operating_costs", "co2_captured", "hydrogen_production"
+]
+available_target_cols = [c for c in default_target_cols if c in data.columns]
+target_cols = st.sidebar.multiselect(
+    "Select target columns",
+    data.columns.tolist(),
+    default=available_target_cols
+)
 
-# Ensure the default columns exist in the data
-available_target_cols = [col for col in default_target_cols if col in data.columns]
-
-# If no target columns are selected, default to available ones
-target_cols = st.sidebar.multiselect("Select target columns", data.columns.tolist(), default=available_target_cols)
-
-# Handle missing target columns by checking if they exist in the dataset
-missing_cols = [col for col in target_cols if col not in data.columns]
-if missing_cols:
-    st.warning(f"The following target columns are missing from the data: {', '.join(missing_cols)}")
+# Warn about missing targets
+missing = [c for c in target_cols if c not in data.columns]
+if missing:
+    st.warning(f"The following target columns are missing: {', '.join(missing)}")
 
 if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
@@ -59,48 +67,77 @@ if not features or not target_cols:
 if 'date' in features:
     features.remove('date')
 
-# Scale the input features
+# Prepare data
 scaler = MinMaxScaler()
-scaled_features = scaler.fit_transform(data[features])
-X = pd.DataFrame(scaled_features, columns=features)
+X = pd.DataFrame(scaler.fit_transform(data[features]), columns=features)
 
-# Ensure that y is correctly shaped (flatten if necessary for single target columns)
-y = data[target_cols]
+# y as array (1D) or DataFrame (multi-output)
 if len(target_cols) == 1:
-    y = y.values.flatten()  # Flatten if a single target column
+    y = data[target_cols[0]].values  # 1D array
+else:
+    y = data[target_cols]            # DataFrame for multi-output
 
-# Sidebar model training parameters
+# Sidebar model parameters
 st.sidebar.header("Model Training")
-model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost"])
+model_choice = st.sidebar.selectbox(
+    "Select Model",
+    ["Random Forest", "Gradient Boosting", "XGBoost"]
+)
 n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
 if st.sidebar.button("Train Model"):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
-    # Start time
-    start_time = time.time()
-
-    if model_choice == "Random Forest":
-        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "Gradient Boosting":
-        model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    # Wrap for multi-output if needed
+    if len(target_cols) > 1:
+        base = {
+            "Random Forest": RandomForestRegressor,
+            "Gradient Boosting": GradientBoostingRegressor,
+            "XGBoost": XGBRegressor
+        }[model_choice]
+        model = MultiOutputRegressor(
+            base(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+        )
     else:
-        model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+        if model_choice == "Random Forest":
+            model = RandomForestRegressor(
+                n_estimators=n_estimators, max_depth=max_depth, random_state=42
+            )
+        elif model_choice == "Gradient Boosting":
+            model = GradientBoostingRegressor(
+                n_estimators=n_estimators, max_depth=max_depth, random_state=42
+            )
+        else:
+            model = XGBRegressor(
+                n_estimators=n_estimators, max_depth=max_depth, random_state=42
+            )
 
+    start_time = time.time()
     model.fit(X_train, y_train)
     training_time = time.time() - start_time
 
     y_pred = model.predict(X_test)
-    mae = mean_absolute_error(y_test, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-    r2 = r2_score(y_test, y_pred)
+    # Ensure shapes align for metrics
+    if len(target_cols) == 1:
+        y_test_arr = y_test
+        y_pred_arr = y_pred
+    else:
+        y_test_arr = y_test.values
+        y_pred_arr = y_pred
 
+    mae = mean_absolute_error(y_test_arr, y_pred_arr)
+    rmse = np.sqrt(mean_squared_error(y_test_arr, y_pred_arr))
+    r2  = r2_score(y_test_arr, y_pred_arr)
+
+    # Model evaluation display
     st.subheader("Model Evaluation")
     st.metric("🧮 MAE", f"{mae:.3f}")
     st.metric("📉 RMSE", f"{rmse:.3f}")
     st.metric("📈 R² Score", f"{r2:.3f}")
-    st.metric("⏱️ Training Time", f"{training_time:.2f} seconds")
+    st.metric("⏱️ Training Time", f"{training_time:.2f} s")
 
     # Performance badge
     if r2 >= 0.9:
@@ -110,51 +147,51 @@ if st.sidebar.button("Train Model"):
     else:
         st.warning("⚠️ Model Needs Improvement")
 
-    # Model summary report
+    # Summary report
     st.subheader("📊 Model Summary Report")
-    report_data = {
+    st.json({
         "Model": model_choice,
         "MAE": mae,
         "RMSE": rmse,
         "R²": r2,
         "Training Time (s)": training_time,
         "Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    st.json(report_data)
+    })
 
-    # Residual error analysis
+    # Residual analysis
     st.subheader("Residual Error Analysis")
-    residuals = y_test - y_pred
+    resid = (y_test_arr - y_pred_arr).ravel()
     fig, ax = plt.subplots()
-    sns.histplot(residuals, bins=30, kde=True, ax=ax)
+    sns.histplot(resid, bins=30, kde=True, ax=ax)
     ax.set_title("Residuals Distribution")
     st.pyplot(fig)
 
-    # Feature importances table (graph removed)
+    # Feature importances table
     st.subheader("🔍 Feature Importances")
-    feature_importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
-    if feature_importances is not None:
-        importance_df = pd.DataFrame({
-            'Feature': features,
-            'Importance': feature_importances
-        }).sort_values(by='Importance', ascending=False)
-        st.dataframe(importance_df)
+    if hasattr(model, "feature_importances_"):
+        importances = model.feature_importances_
     else:
-        st.write("Feature importances not available for this model.")
+        # MultiOutputRegressor stores estimators_
+        importances = np.mean(
+            [est.feature_importances_ for est in model.estimators_],
+            axis=0
+        )
+    imp_df = pd.DataFrame({
+        "Feature": features,
+        "Importance": importances
+    }).sort_values("Importance", ascending=False)
+    st.dataframe(imp_df)
 
-    # Predictions table with timestamp
+    # Predictions vs Actual
     st.subheader("📋 Predictions vs Actual")
-    pred_df = pd.DataFrame()
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if len(target_cols) == 1:
-        col = target_cols[0]
-        pred_df[f"Actual_{col}"] = y_test
-        pred_df[f"Predicted_{col}"] = y_pred
-    else:
-        for i, col in enumerate(target_cols):
-            pred_df[f"Actual_{col}"] = y_test.iloc[:, i].values
-            pred_df[f"Predicted_{col}"] = y_pred[:, i]
-    pred_df["Timestamp"] = timestamp
+    pred_df = pd.DataFrame(
+        y_test_arr if len(target_cols)==1 else y_test_arr,
+        columns=target_cols
+    )
+    pred_df[[f"Pred_{c}" for c in target_cols]] = (
+        y_pred_arr if len(target_cols)==1 else y_pred_arr
+    )
+    pred_df["Timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     st.dataframe(pred_df)
 
     # System resource usage
