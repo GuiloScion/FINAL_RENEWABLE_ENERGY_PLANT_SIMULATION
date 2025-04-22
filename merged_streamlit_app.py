@@ -8,8 +8,6 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split, cross_val_score
 from xgboost import XGBRegressor
-from catboost import CatBoostRegressor
-from lightgbm import LGBMRegressor
 import time
 import datetime
 import seaborn as sns
@@ -157,7 +155,7 @@ if X is None or y is None:
 # Sidebar: Model Training Parameters
 with st.sidebar.expander("Model Training", expanded=True):
     st.sidebar.header("Model Training")
-    model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "CatBoost", "LightGBM"])
+    model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost"])
     n_estimators = st.sidebar.slider("Number of Trees (for Tree-based Models)", 10, 200, 100)
     max_depth = st.sidebar.slider("Max Depth (for Tree-based Models)", 1, 20, 10)
     learning_rate = st.sidebar.slider("Learning Rate (for Gradient Boosting Models)", 0.01, 0.3, 0.1)
@@ -176,10 +174,6 @@ if st.sidebar.button("Train Model"):
                 model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
             elif model_choice == "XGBoost":
                 model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
-            elif model_choice == "CatBoost":
-                model = CatBoostRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42, verbose=0)
-            elif model_choice == "LightGBM":
-                model = LGBMRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
 
             cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='r2')
             st.subheader("🔄 Cross-Validation Scores")
@@ -216,7 +210,7 @@ if st.sidebar.button("Train Model"):
             st.dataframe(importance_df)
 
         # SHAP Explanations
-        if model_choice in ["Random Forest", "Gradient Boosting", "XGBoost", "CatBoost", "LightGBM"]:
+        if model_choice in ["Random Forest", "Gradient Boosting", "XGBoost"]:
             display_shap_explanations(model, X_train, features)
 
         st.subheader("📋 Predictions vs Actual")
@@ -248,10 +242,10 @@ if st.sidebar.button("Train Model"):
         st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
         st.write(f"System Platform: {platform.system()} {platform.release()}")
 
-        # Real-Time Prediction
+        # Real-Time Prediction Section
         st.sidebar.subheader("Real-Time Predictions")
         input_data = [st.sidebar.number_input(f"Enter {feature}", value=0.0) for feature in features]
         if st.sidebar.button("Predict"):
             prediction = predict_new_data(model, scaler, input_data)
             if prediction is not None:
-                st.sidebar.write("Prediction:", prediction[0])
+                st.sidebar.write(f"Prediction: {prediction[0]:.3f}")
