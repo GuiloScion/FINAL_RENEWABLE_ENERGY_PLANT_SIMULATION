@@ -67,101 +67,122 @@ y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
 # Ensure that y is a 1D array for TPOT (flattening y if necessary)
 y = y.values.flatten()  # Flatten y to ensure it's 1D
 
-# Check if X and y have the same length
-if len(X) != len(y):
-    st.error(f"The number of rows in features ({len(X)}) and target ({len(y)}) do not match. Please check your input data.")
-    st.stop()
+# Check the shapes of X and y before splitting
+st.write("Features shape (X):", X.shape)
+st.write("Target shape (y):", y.shape)
 
-# Sidebar model training parameters
-st.sidebar.header("Model Training")
-model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "AutoML"])
-n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
-max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
+# Check for missing values
+st.write("Missing values in features (X):")
+st.write(X.isnull().sum())
 
-# Optimization Button for AutoML
-automl_button = st.sidebar.button("Train AutoML Model")
+st.write("Missing values in target (y):")
+st.write(pd.Series(y).isnull().sum())
 
-if automl_button:
-    # Start time for training
-    start_time = time.time()
+# Align indices if needed
+y = pd.Series(y)  # Convert y to a pandas Series for indexing
+y = y.loc[X.index]  # Make sure the target aligns with features
+X = X.reset_index(drop=True)
+y = y.reset_index(drop=True)
 
-    # Split the dataset into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Check the shapes again
+st.write("Updated Features shape (X):", X.shape)
+st.write("Updated Target shape (y):", y.shape)
 
-    # Initialize AutoML model
-    model = TPOTRegressor(generations=5, population_size=20, random_state=42, n_jobs=-1)
+# If shapes are consistent, proceed with train-test split
+if len(X) == len(y):
+    # Sidebar model training parameters
+    st.sidebar.header("Model Training")
+    model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "AutoML"])
+    n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
+    max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
-    # Fit the AutoML model
-    model.fit(X_train, y_train)
-    training_time = time.time() - start_time
+    # Optimization Button for AutoML
+    automl_button = st.sidebar.button("Train AutoML Model")
 
-    # Predict with the trained model
-    y_pred = model.predict(X_test)
+    if automl_button:
+        # Start time for training
+        start_time = time.time()
 
-    # Evaluate the model
-    mae = mean_absolute_error(y_test, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-    r2 = r2_score(y_test, y_pred)
+        # Split the dataset into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Display model evaluation metrics
-    st.subheader("Model Evaluation")
-    st.metric("🧮 MAE", f"{mae:.3f}")
-    st.metric("📉 RMSE", f"{rmse:.3f}")
-    st.metric("📈 R² Score", f"{r2:.3f}")
-    st.metric("⏱️ Training Time", f"{training_time:.2f} seconds")
+        # Initialize AutoML model
+        model = TPOTRegressor(generations=5, population_size=20, random_state=42, n_jobs=-1)
 
-    # Performance badge
-    if r2 >= 0.9:
-        st.success("✅ Excellent Model Performance")
-    elif r2 >= 0.75:
-        st.info("ℹ️ Good Model Performance")
-    else:
-        st.warning("⚠️ Model Needs Improvement")
+        # Fit the AutoML model
+        model.fit(X_train, y_train)
+        training_time = time.time() - start_time
 
-    # Model summary report
-    st.subheader("📊 Model Summary Report")
-    report_data = {
-        "Model": "AutoML (TPOT)",
-        "MAE": mae,
-        "RMSE": rmse,
-        "R²": r2,
-        "Training Time (s)": training_time,
-        "Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    st.json(report_data)
+        # Predict with the trained model
+        y_pred = model.predict(X_test)
 
-    # Residual error analysis
-    st.subheader("Residual Error Analysis")
-    residuals = y_test - y_pred
-    fig, ax = plt.subplots()
-    sns.histplot(residuals, bins=30, kde=True, ax=ax)
-    ax.set_title("Residuals Distribution")
-    st.pyplot(fig)
+        # Evaluate the model
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
 
-    # Feature importances table (graph removed)
-    st.subheader("🔍 Feature Importances")
-    feature_importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
-    if feature_importances is not None:
-        importance_df = pd.DataFrame({
-            'Feature': features,
-            'Importance': feature_importances
-        }).sort_values(by='Importance', ascending=False)
-        st.dataframe(importance_df)
-    else:
-        st.write("Feature importances not available for this model.")
+        # Display model evaluation metrics
+        st.subheader("Model Evaluation")
+        st.metric("🧮 MAE", f"{mae:.3f}")
+        st.metric("📉 RMSE", f"{rmse:.3f}")
+        st.metric("📈 R² Score", f"{r2:.3f}")
+        st.metric("⏱️ Training Time", f"{training_time:.2f} seconds")
 
-    # Predictions table with timestamp
-    st.subheader("📋 Predictions vs Actual")
-    pred_df = pd.DataFrame()
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    for i, col in enumerate(target_cols):
-        pred_df[f"Actual_{col}"] = y_test
-        pred_df[f"Predicted_{col}"] = y_pred
-    pred_df["Timestamp"] = timestamp
-    st.dataframe(pred_df)
+        # Performance badge
+        if r2 >= 0.9:
+            st.success("✅ Excellent Model Performance")
+        elif r2 >= 0.75:
+            st.info("ℹ️ Good Model Performance")
+        else:
+            st.warning("⚠️ Model Needs Improvement")
 
-    # System resource usage
-    st.subheader("⚙️ System Resource Usage")
-    st.write(f"CPU Usage: {psutil.cpu_percent()}%")
-    st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
-    st.write(f"System Platform: {platform.system()} {platform.release()}")
+        # Model summary report
+        st.subheader("📊 Model Summary Report")
+        report_data = {
+            "Model": "AutoML (TPOT)",
+            "MAE": mae,
+            "RMSE": rmse,
+            "R²": r2,
+            "Training Time (s)": training_time,
+            "Date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        st.json(report_data)
+
+        # Residual error analysis
+        st.subheader("Residual Error Analysis")
+        residuals = y_test - y_pred
+        fig, ax = plt.subplots()
+        sns.histplot(residuals, bins=30, kde=True, ax=ax)
+        ax.set_title("Residuals Distribution")
+        st.pyplot(fig)
+
+        # Feature importances table (graph removed)
+        st.subheader("🔍 Feature Importances")
+        feature_importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
+        if feature_importances is not None:
+            importance_df = pd.DataFrame({
+                'Feature': features,
+                'Importance': feature_importances
+            }).sort_values(by='Importance', ascending=False)
+            st.dataframe(importance_df)
+        else:
+            st.write("Feature importances not available for this model.")
+
+        # Predictions table with timestamp
+        st.subheader("📋 Predictions vs Actual")
+        pred_df = pd.DataFrame()
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for i, col in enumerate(target_cols):
+            pred_df[f"Actual_{col}"] = y_test
+            pred_df[f"Predicted_{col}"] = y_pred
+        pred_df["Timestamp"] = timestamp
+        st.dataframe(pred_df)
+
+        # System resource usage
+        st.subheader("⚙️ System Resource Usage")
+        st.write(f"CPU Usage: {psutil.cpu_percent()}%")
+        st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
+        st.write(f"System Platform: {platform.system()} {platform.release()}")
+
+else:
+    st.error("The number of rows in features and target do not match. Please check your data.")
