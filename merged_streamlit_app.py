@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from xgboost import XGBRegressor
 import time
 import datetime
@@ -15,7 +15,8 @@ import platform
 import logging
 import joblib
 from datetime import datetime
-from sklearn.model_selection import cross_val_score
+from scipy.stats import shapiro
+import os
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -37,14 +38,44 @@ st.sidebar.markdown("""
 with st.sidebar.expander("Upload Data", expanded=True):
     uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
+# Function to load data
 @st.cache_data
-def load_data(file: str) -> pd.DataFrame:
+def load_data(file) -> pd.DataFrame:
     try:
+        # Validate file content
+        if file is None or not file.name.endswith('.csv'):
+            raise ValueError("Uploaded file is not a valid CSV.")
         data = pd.read_csv(file)
+        if data.empty:
+            raise ValueError("Uploaded file is empty.")
         return data
     except Exception as e:
         st.error(f"Error reading the file: {e}")
         return pd.DataFrame()
+
+# Function to preprocess data
+def preprocess_data(data: pd.DataFrame, features: list, target_cols: list):
+    try:
+        # Handle missing values
+        if data.isnull().any().any():
+            st.warning("Data contains missing values. Consider cleaning the data.")
+            data = data.dropna()
+
+        # Remove 'date' column from features if it exists
+        if 'date' in features:
+            features.remove('date')
+
+        # Scale features
+        scaler = MinMaxScaler()
+        scaled_features = scaler.fit_transform(data[features])
+        X = pd.DataFrame(scaled_features, columns=features)
+
+        # Scale target if needed
+        y = data[target_cols] if len(target_cols) > 1 else data[target_cols[0]]
+        return X, y, scaler
+    except Exception as e:
+        st.error(f"Error during preprocessing: {e}")
+        return None, None, None
 
 if uploaded_file is not None:
     logging.info("File uploaded successfully.")
@@ -81,19 +112,10 @@ if not features or not target_cols:
     st.error("Please select at least one feature and one target column.")
     st.stop()
 
-# Remove 'date' from features if present
-if 'date' in features:
-    features.remove('date')
-
-# Check for missing values
-if data.isnull().any().any():
-    st.warning("Data contains missing values. Consider cleaning the data.")
-
-# Scale the input features
-scaler = MinMaxScaler()
-scaled_features = scaler.fit_transform(data[features])
-X = pd.DataFrame(scaled_features, columns=features)
-y = data[target_cols] if len(target_cols) > 1 else data[target_cols[0]]
+# Preprocess data
+X, y, scaler = preprocess_data(data, features, target_cols)
+if X is None or y is None:
+    st.stop()
 
 # Sidebar: Model Training Parameters
 with st.sidebar.expander("Model Training", expanded=True):
@@ -124,6 +146,7 @@ if st.sidebar.button("Train Model"):
             st.write("Cross-validation R² scores:", cv_scores)
             st.write("Mean R² score:", np.mean(cv_scores))
 
+            # Train model
             model.fit(X_train, y_train)
         except Exception as e:
             logging.error(f"Error during model training: {e}")
@@ -187,9 +210,12 @@ if st.sidebar.button("Train Model"):
         ax.set_title("Residuals Distribution")
         st.pyplot(fig)
 
+        # Shapiro-Wilk test for normality of residuals
+        shapiro_stat, shapiro_p = shapiro(residuals)
+        st.write(f"Shapiro-Wilk Test: Statistic={shapiro_stat:.3f}, p-value={shapiro_p:.3f}")
+
         # System Resource Usage
         st.subheader("⚙️ System Resource Usage")
         st.write(f"CPU Usage: {psutil.cpu_percent()}%")
         st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
         st.write(f"System Platform: {platform.system()} {platform.release()}")
-        
