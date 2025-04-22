@@ -473,13 +473,24 @@ if st.sidebar.checkbox("Enable Hyperparameter Tuning"):
     if 'model' not in locals() or model is None:
         st.error("Please train a model first before performing hyperparameter tuning.")
     else:
-        param_grid = {
-            "n_estimators": [50, 100, 150],
-            "max_depth": [5, 10, 15],
-            "learning_rate": [0.01, 0.1, 0.2],
-        }
+        # Define parameter grid based on the selected model
+        if model_choice == "Random Forest":
+            param_grid = {
+                "n_estimators": [50, 100, 150],
+                "max_depth": [5, 10, 15],
+            }
+        elif model_choice in ["Gradient Boosting", "XGBoost"]:
+            param_grid = {
+                "n_estimators": [50, 100, 150],
+                "max_depth": [5, 10, 15],
+                "learning_rate": [0.01, 0.1, 0.2],
+            }
+        else:
+            st.error("Hyperparameter tuning is not supported for the selected model.")
+            st.stop()
+
         try:
-            # Perform grid search
+            # Run grid search
             grid_search = GridSearchCV(model, param_grid, cv=3, scoring="r2")
             grid_search.fit(X, y)
             st.write(f"Best Parameters: {grid_search.best_params_}")
