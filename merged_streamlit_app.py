@@ -192,3 +192,4 @@ if st.sidebar.button("Train Model"):
         st.write(f"CPU Usage: {psutil.cpu_percent()}%")
         st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
         st.write(f"System Platform: {platform.system()} {platform.release()}")
+        
