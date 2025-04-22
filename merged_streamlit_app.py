@@ -97,8 +97,8 @@ elif model_choice == "Gradient Boosting":
 else:
        model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
  
-   model.fit(X_train, y_train)
-   training_time = time.time() - start_time
+ model.fit(X_train, y_train)
+ training_time = time.time() - start_time
  
     y_pred = model.predict(X_test)
     mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
