@@ -22,6 +22,57 @@ import h2o
 from h2o.automl import H2OAutoML
 import json
 from io import BytesIO
+
+# Authentication for the Feedback Viewer using Streamlit Secrets
+def authenticate():
+    try:
+        recovery_code = st.secrets["credentials"]["github_recovery_code"]
+    except KeyError:
+        st.error("GitHub recovery code is not set in Streamlit secrets.")
+        return False
+
+    input_code = st.text_input("Enter your GitHub recovery code:", value="", type="password")
+    if st.button("Authenticate"):
+        if input_code == recovery_code:
+            st.success("Access granted.")
+            return True
+        else:
+            st.error("Access denied. Incorrect recovery code.")
+            return False
+    return False
+
+# Feedback Viewer with Authentication
+if st.sidebar.checkbox("View Feedback"):
+    if authenticate():  # Authenticate before showing feedback
+        try:
+            # Load feedback from feedback.json
+            with open("feedback.json", "r") as f:
+                feedback_list = [json.loads(line) for line in f]
+            st.subheader("Submitted Feedback")
+            st.write(pd.DataFrame(feedback_list))  # Display feedback in a table
+
+            # Option to download feedback as JSON or CSV
+            feedback_df = pd.DataFrame(feedback_list)
+            feedback_json = feedback_df.to_json(orient="records", lines=True)
+            feedback_csv = feedback_df.to_csv(index=False)
+            st.download_button(
+                label="Download Feedback (JSON)",
+                data=feedback_json,
+                file_name="feedback.json",
+                mime="application/json",
+            )
+            st.download_button(
+                label="Download Feedback (CSV)",
+                data=feedback_csv,
+                file_name="feedback.csv",
+                mime="text/csv",
+            )
+        except FileNotFoundError:
+            st.warning("No feedback has been submitted yet.")
+        except Exception as e:
+            st.error(f"Error reading feedback: {e}")
+
+
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
