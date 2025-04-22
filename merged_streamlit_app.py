@@ -35,7 +35,7 @@ st.sidebar.header("Upload Data")
 uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
  
 @st.cache_data
- def load_data(file):
+def load_data(file):
     data = pd.read_csv(file)
     return data
  
