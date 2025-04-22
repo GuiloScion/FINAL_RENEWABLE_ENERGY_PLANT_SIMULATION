@@ -519,6 +519,8 @@ if st.sidebar.checkbox("Leave Feedback"):
             json.dump({"feedback": feedback, "timestamp": str(datetime.now())}, f)
             f.write("\n")
         st.sidebar.success("Thank you for your feedback!")
+
+
 # Authentication for the Feedback Viewer using Streamlit Secrets
 def authenticate():
     try:
@@ -545,7 +547,7 @@ def view_feedback():
         # Load feedback from feedback.json
         with open("feedback.json", "r") as f:
             feedback_list = [json.loads(line) for line in f]
-        st.write(pd.DataFrame(feedback_list))  # Display feedback in a smaller table
+        st.write(pd.DataFrame(feedback_list).tail(5))  # Show the last 5 entries only (keep it concise)
     except FileNotFoundError:
         st.warning("No feedback has been submitted yet.")
     except Exception as e:
@@ -571,31 +573,31 @@ if __name__ == "__main__":
         else:
             st.sidebar.error("Feedback cannot be empty.")
 
-    # Feedback viewer (developer-only, smaller, and in the top-right corner)
-    with st.container():
+    # Feedback viewer (developer-only, MUCH smaller, and in the top-right corner)
+    if authenticate():  # Authenticate before showing the feedback viewer
         st.markdown(
             """
             <style>
-            .feedback-viewer {
+            .developer-feedback-viewer {
                 position: fixed;
-                top: 20px;
-                right: 20px;
-                width: 300px; /* Adjust the width */
-                height: 200px; /* Adjust the height */
-                background-color: #f9f9f9;
-                border: 1px solid #ddd;
-                padding: 10px;
-                overflow-y: auto; /* Add scrolling for overflow */
+                top: 10px;
+                right: 10px;
+                width: 200px; /* MUCH smaller width */
+                height: 150px; /* MUCH smaller height */
+                background-color: #fdfdfd;
+                border: 1px solid #ccc;
+                padding: 5px;
+                overflow-y: scroll; /* Scrollable for overflow content */
                 z-index: 1000; /* Ensure it appears on top */
                 box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
                 border-radius: 8px;
+                font-size: 10px; /* Smaller font size */
             }
             </style>
+            <div class="developer-feedback-viewer">
+                <h4 style="font-size: 14px; margin-top: 0;">Feedback Viewer</h4>
             """,
             unsafe_allow_html=True,
         )
-        if authenticate():  # Authenticate before showing the feedback viewer
-            st.markdown('<div class="feedback-viewer">', unsafe_allow_html=True)
-            st.subheader("Feedback Viewer")
-            view_feedback()
-            st.markdown('</div>', unsafe_allow_html=True)
+        view_feedback()  # Display feedback in the small container
+        st.markdown("</div>", unsafe_allow_html=True)
