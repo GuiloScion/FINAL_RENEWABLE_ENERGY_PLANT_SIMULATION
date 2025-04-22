@@ -13,6 +13,7 @@ import seaborn as sns
 import psutil
 import platform
 import os
+from tpot import TPOTRegressor  # AutoML library for optimization
 
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
 st.title("🔋 Renewable Energy Production Predictor")
@@ -71,26 +72,29 @@ model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient 
 n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
-if st.sidebar.button("Train Model"):
+# AutoML Button
+if st.sidebar.button("Run AutoML & Optimization"):
+    st.subheader("AutoML Optimization in Progress...")
+
+    # Train-test split for optimization
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Start time
+    # Start time for AutoML optimization
     start_time = time.time()
 
-    if model_choice == "Random Forest":
-        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "Gradient Boosting":
-        model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    else:
-        model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-
-    model.fit(X_train, y_train)
+    # AutoML using TPOTRegressor for optimization
+    automl_model = TPOTRegressor( generations=5, population_size=20, random_state=42, verbosity=2)
+    automl_model.fit(X_train, y_train)
     training_time = time.time() - start_time
 
-    y_pred = model.predict(X_test)
-    mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
-    rmse = np.sqrt(mean_squared_error(y_test.values.flatten(), y_pred.flatten()))
-    r2 = r2_score(y_test.values.flatten(), y_pred.flatten())
+    # Get the best model
+    best_model = automl_model.fitted_pipeline_
+
+    # Make predictions and evaluate
+    y_pred = best_model.predict(X_test)
+    mae = mean_absolute_error(y_test, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    r2 = r2_score(y_test, y_pred)
 
     st.subheader("Model Evaluation")
     st.metric("🧮 MAE", f"{mae:.3f}")
@@ -109,7 +113,7 @@ if st.sidebar.button("Train Model"):
     # Model summary report
     st.subheader("📊 Model Summary Report")
     report_data = {
-        "Model": model_choice,
+        "Model": "AutoML Optimized Model",
         "MAE": mae,
         "RMSE": rmse,
         "R²": r2,
@@ -120,37 +124,32 @@ if st.sidebar.button("Train Model"):
 
     # Residual error analysis
     st.subheader("Residual Error Analysis")
-    residuals = y_test.values.flatten() - y_pred.flatten()
+    residuals = y_test - y_pred
     fig, ax = plt.subplots()
     sns.histplot(residuals, bins=30, kde=True, ax=ax)
     ax.set_title("Residuals Distribution")
     st.pyplot(fig)
 
-    # Feature importances table (graph removed)
+    # Feature importances
     st.subheader("🔍 Feature Importances")
-    feature_importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
-    if feature_importances is not None:
-        importance_df = pd.DataFrame({
-            'Feature': features,
-            'Importance': feature_importances
-        }).sort_values(by='Importance', ascending=False)
-        st.dataframe(importance_df)
+    if hasattr(best_model, 'named_steps'):
+        feature_importances = best_model.named_steps.get('randomforestregressor', None).feature_importances_
+        if feature_importances is not None:
+            importance_df = pd.DataFrame({
+                'Feature': features,
+                'Importance': feature_importances
+            }).sort_values(by='Importance', ascending=False)
+            st.dataframe(importance_df)
     else:
         st.write("Feature importances not available for this model.")
 
     # Predictions table with timestamp
     st.subheader("📋 Predictions vs Actual")
-    pred_df = pd.DataFrame()
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if len(target_cols) == 1:
-        col = target_cols[0]
-        pred_df[f"Actual_{col}"] = y_test.values.flatten()
-        pred_df[f"Predicted_{col}"] = y_pred.flatten()
-    else:
-        for i, col in enumerate(target_cols):
-            pred_df[f"Actual_{col}"] = y_test.iloc[:, i].values
-            pred_df[f"Predicted_{col}"] = y_pred[:, i]
-    pred_df["Timestamp"] = timestamp
+    pred_df = pd.DataFrame({
+        "Actual": y_test.values.flatten(),
+        "Predicted": y_pred.flatten(),
+        "Timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
     st.dataframe(pred_df)
 
     # System resource usage
@@ -158,49 +157,3 @@ if st.sidebar.button("Train Model"):
     st.write(f"CPU Usage: {psutil.cpu_percent()}%")
     st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
     st.write(f"System Platform: {platform.system()} {platform.release()}")
-
-    # Scenario & Outage Simulation
-    st.sidebar.header("Scenario & Outage Simulation")
-
-    # User inputs for outage scenario
-    outage_probability = st.sidebar.slider("Outage Probability (%)", 0, 100, 10)
-    outage_duration = st.sidebar.slider("Outage Duration (hours)", 1, 24, 4)
-
-    # Function to simulate outages
-    def simulate_outage(data, outage_prob, outage_dur):
-        outage_mask = np.random.rand(len(data)) < (outage_prob / 100)
-        data_copy = data.copy()
-        data_copy.loc[outage_mask, target_cols] = 0  # Set output to 0 during outage
-        return data_copy
-
-    # Add session state to track button click state
-    if "simulate_outage_clicked" not in st.session_state:
-        st.session_state.simulate_outage_clicked = False
-
-    if st.sidebar.button("Simulate Outages"):
-        st.session_state.simulate_outage_clicked = True
-
-    # If the button is clicked, perform the simulation
-    if st.session_state.simulate_outage_clicked:
-        simulated_data = simulate_outage(data, outage_probability, outage_duration)
-        st.subheader("Simulated Data with Outages")
-        st.dataframe(simulated_data)
-
-        # Display the impact of outages on predictions
-        X_sim = scaler.transform(simulated_data[features])
-        simulated_predictions = model.predict(X_sim)
-        st.subheader("Predicted Output with Outages")
-        simulated_pred_df = pd.DataFrame(simulated_predictions, columns=[f"Predicted_{col}" for col in target_cols])
-        st.dataframe(simulated_pred_df)
-
-        # Visualization of outage impact
-        st.subheader("Outage Impact Visualization")
-        plt.figure(figsize=(10, 6))
-        plt.plot(simulated_pred_df)
-        plt.title("Impact of Outages on Predictions")
-        plt.xlabel("Time")
-        plt.ylabel("Predicted Output")
-        st.pyplot()
-
-        # Reset button state after simulation
-        st.session_state.simulate_outage_clicked = False
