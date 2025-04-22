@@ -14,22 +14,6 @@ import seaborn as sns
 import psutil
 import platform
 import os
-import tempfile
-import mlflow
-
-# Ensure MLflow can write to a temporary directory if '/absolute/path/to/mlruns' doesn't work
-try:
-    # Try creating 'mlruns' in the current working directory
-    mlruns_dir = './mlruns'  # Use relative path if the absolute one failed
-    os.makedirs(mlruns_dir, exist_ok=True)  # Create the directory if it doesn't exist
-except PermissionError:
-    # Fall back to using a temporary directory
-    mlruns_dir = tempfile.mkdtemp()  # Use temporary directory
-    st.warning(f"Unable to write to the specified directory. Using a temporary directory: {mlruns_dir}")
-
-# Set MLflow tracking URI
-mlflow.set_tracking_uri(f"file://{os.path.abspath(mlruns_dir)}")
-mlflow.set_experiment("Renewable_Simulation")
 
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
 st.title("🔋 Renewable Energy Production Predictor")
