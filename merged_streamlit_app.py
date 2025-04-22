@@ -58,19 +58,25 @@ if not features or not target_cols:
 if 'date' in features:
     features.remove('date')
 
+# Ensure there are no missing rows in the features and target
+data = data.dropna(subset=features + target_cols)  # Drop rows where any of the features or target columns have missing values
+
 # Scale the input features
 scaler = MinMaxScaler()
 scaled_features = scaler.fit_transform(data[features])
 X = pd.DataFrame(scaled_features, columns=features)
-y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
 
-# Ensure that y is a 1D array for TPOT (flattening y if necessary)
-y = y.values.flatten()  # Flatten y to ensure it's 1D
+# Get the target columns (make sure they're correctly selected)
+y = data[target_cols]
 
-# Check if X and y have the same length
+# Check if the number of rows in X and y match
 if len(X) != len(y):
-    st.error("The number of rows in features and target do not match. Please check your input data.")
+    st.error(f"The number of rows in features ({len(X)}) and target ({len(y)}) do not match. Please check your input data.")
     st.stop()
+
+# If the target columns are multiple, make sure y is flattened
+if y.shape[1] > 1:
+    y = y.values.flatten()  # Flatten to a 1D array
 
 # Sidebar model training parameters
 st.sidebar.header("Model Training")
