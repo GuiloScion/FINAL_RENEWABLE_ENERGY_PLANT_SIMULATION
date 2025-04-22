@@ -3,17 +3,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from xgboost import XGBRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from tpot import TPOTRegressor
 import time
 import datetime
 import seaborn as sns
 import psutil
 import platform
 import os
-from tpot import TPOTRegressor  # AutoML library for optimization
 
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide")
 st.title("🔋 Renewable Energy Production Predictor")
@@ -66,32 +64,35 @@ scaled_features = scaler.fit_transform(data[features])
 X = pd.DataFrame(scaled_features, columns=features)
 y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
 
+# Ensure that y is a 1D array for TPOT
+y = y.values.flatten()  # Flatten y to ensure it's 1D
+
 # Sidebar model training parameters
 st.sidebar.header("Model Training")
-model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost"])
+model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "AutoML"])
 n_estimators = st.sidebar.slider("Number of Trees", 10, 200, 100)
 max_depth = st.sidebar.slider("Max Depth", 1, 20, 10)
 
-# AutoML Button
-if st.sidebar.button("Run AutoML & Optimization"):
-    st.subheader("AutoML Optimization in Progress...")
-
-    # Train-test split for optimization
+if st.sidebar.button("Train Model"):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Start time for AutoML optimization
+    # Start time
     start_time = time.time()
 
-    # AutoML using TPOTRegressor for optimization
-    automl_model = TPOTRegressor( generations=5, population_size=20, random_state=42, verbosity=2)
-    automl_model.fit(X_train, y_train)
+    if model_choice == "Random Forest":
+        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    elif model_choice == "Gradient Boosting":
+        model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    elif model_choice == "XGBoost":
+        from xgboost import XGBRegressor
+        model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    elif model_choice == "AutoML":
+        model = TPOTRegressor( generations=5, population_size=20, random_state=42, n_jobs=-1)
+
+    model.fit(X_train, y_train)
     training_time = time.time() - start_time
 
-    # Get the best model
-    best_model = automl_model.fitted_pipeline_
-
-    # Make predictions and evaluate
-    y_pred = best_model.predict(X_test)
+    y_pred = model.predict(X_test)
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     r2 = r2_score(y_test, y_pred)
@@ -113,7 +114,7 @@ if st.sidebar.button("Run AutoML & Optimization"):
     # Model summary report
     st.subheader("📊 Model Summary Report")
     report_data = {
-        "Model": "AutoML Optimized Model",
+        "Model": model_choice,
         "MAE": mae,
         "RMSE": rmse,
         "R²": r2,
@@ -130,26 +131,26 @@ if st.sidebar.button("Run AutoML & Optimization"):
     ax.set_title("Residuals Distribution")
     st.pyplot(fig)
 
-    # Feature importances
+    # Feature importances table (graph removed)
     st.subheader("🔍 Feature Importances")
-    if hasattr(best_model, 'named_steps'):
-        feature_importances = best_model.named_steps.get('randomforestregressor', None).feature_importances_
-        if feature_importances is not None:
-            importance_df = pd.DataFrame({
-                'Feature': features,
-                'Importance': feature_importances
-            }).sort_values(by='Importance', ascending=False)
-            st.dataframe(importance_df)
+    feature_importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
+    if feature_importances is not None:
+        importance_df = pd.DataFrame({
+            'Feature': features,
+            'Importance': feature_importances
+        }).sort_values(by='Importance', ascending=False)
+        st.dataframe(importance_df)
     else:
         st.write("Feature importances not available for this model.")
 
     # Predictions table with timestamp
     st.subheader("📋 Predictions vs Actual")
-    pred_df = pd.DataFrame({
-        "Actual": y_test.values.flatten(),
-        "Predicted": y_pred.flatten(),
-        "Timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    })
+    pred_df = pd.DataFrame()
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for i, col in enumerate(target_cols):
+        pred_df[f"Actual_{col}"] = y_test
+        pred_df[f"Predicted_{col}"] = y_pred
+    pred_df["Timestamp"] = timestamp
     st.dataframe(pred_df)
 
     # System resource usage
