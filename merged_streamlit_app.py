@@ -153,37 +153,40 @@ if st.sidebar.button("Train Model"):
     st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
     st.write(f"System Platform: {platform.system()} {platform.release()}")
 
-    # Chatbot Section
-    st.sidebar.header("🤖 Chatbot")
-    user_input = st.sidebar.text_input("Ask me about the model:")
+# Chatbot Section
+st.sidebar.header("🤖 Chatbot")
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-    def chatbot_response(user_input):
-        user_input = user_input.lower()
-        if "model" in user_input:
-            return "The model predicts renewable energy production based on selected features and target columns. It uses machine learning algorithms to learn patterns from historical data."
-        elif "accuracy" in user_input or "performance" in user_input:
-            return "The model's performance is evaluated using metrics like Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and R² score. Higher R² scores indicate better predictive capability."
-        elif "features" in user_input:
-            return "You can select features like cost per kWh, energy consumption, and more. The choice of features greatly impacts the model's performance."
-        elif "predictions" in user_input:
-            return "Predictions are generated based on the trained model, which analyzes input features to estimate energy production outcomes."
-        elif "training" in user_input:
-            return "The model is trained using a portion of the data, typically 80%, while 20% is reserved for testing. This helps to evaluate how well the model generalizes to unseen data."
-        elif "parameters" in user_input:
-            return "You can adjust parameters like the number of trees in ensemble methods or the maximum depth of the trees to optimize results. Tuning these can significantly affect performance."
-        elif "data" in user_input:
-            return "The model uses historical data related to renewable energy production, including factors like weather conditions, energy costs, and consumption patterns."
-        elif "application" in user_input:
-            return "This model can help in predicting energy needs, optimizing costs, and improving energy management, which is essential for sustainable practices."
-        elif "improve" in user_input:
-            return "To improve the model, consider tuning hyperparameters, adding more features, or using ensemble methods. Cross-validation can also help in assessing model stability."
-        elif "challenges" in user_input:
-            return "Common challenges include overfitting, underfitting, and data quality issues. Ensuring that the data is clean and representative is crucial for model success."
-        elif "explainable ai" in user_input:
-            return "Explainable AI (XAI) focuses on making the decision-making process of models transparent. This is important for trust, especially in critical applications like energy management."
-        else:
-            return "I'm sorry, I can only answer questions about the model, its predictions, and related topics. Please ask something specific!"
+user_input = st.sidebar.text_input("Ask me about the model:", key="user_input")
 
-    if user_input:
-        response = chatbot_response(user_input)
-        st.sidebar.text_area("Chatbot Response:", response, height=100)
+def chatbot_response(user_input):
+    responses = {
+        "model": "The model predicts renewable energy production based on selected features and target columns...",
+        "accuracy": "The model's performance is evaluated using metrics like MAE, RMSE, and R² score...",
+        "features": "You can select features like cost per kWh, energy consumption, and more...",
+        "predictions": "Predictions are generated based on the trained model...",
+        "training": "The model is trained using a portion of the data, typically 80% for training and 20% for testing...",
+        "parameters": "You can adjust parameters like the number of trees in ensemble methods or maximum tree depth...",
+        "data": "The model uses historical data such as weather conditions, energy costs, and consumption patterns...",
+        "application": "This model helps predict energy needs, optimize costs, and improve energy management...",
+        "improve": "Improvement can be achieved by tuning hyperparameters, adding new features, or using ensemble methods...",
+        "challenges": "Challenges include overfitting, underfitting, and ensuring clean, representative data...",
+        "explainable ai": "Explainable AI (XAI) makes model decision-making processes transparent for trust...",
+    }
+    user_input = user_input.lower()
+    for key, response in responses.items():
+        if key in user_input:
+            return response
+    return "I'm sorry, I can only answer questions about the model, its predictions, and related topics. Please ask something specific!"
+
+if user_input:
+    response = chatbot_response(user_input)
+    st.session_state.chat_history.append({"user": user_input, "response": response})
+    st.session_state.user_input = ""  # Clear input after submission
+
+# Display chat history
+st.sidebar.subheader("Chat History")
+for chat in st.session_state.chat_history:
+    st.sidebar.text_area("User:", chat["user"], height=50, disabled=True)
+    st.sidebar.text_area("Response:", chat["response"], height=50, disabled=True)
