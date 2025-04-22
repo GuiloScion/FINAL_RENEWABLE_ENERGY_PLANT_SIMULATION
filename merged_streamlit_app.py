@@ -51,15 +51,33 @@ def load_data(file: str) -> pd.DataFrame:
 # Default dataset for demonstration
 demo_data_path = "default_dataset.csv"
 
+def get_demo_data() -> pd.DataFrame:
+    """Load a demo dataset or generate a sample dataset if the default file is missing."""
+    try:
+        data = pd.read_csv(demo_data_path)
+        logging.info(f"Default dataset loaded successfully with shape {data.shape}.")
+        return data
+    except FileNotFoundError:
+        logging.warning("Default dataset not found. Generating a sample dataset.")
+        st.warning("Default dataset not found. Using a sample dataset for demonstration.")
+        
+        # Generate a sample dataset
+        sample_data = pd.DataFrame({
+            "feature_1": np.random.rand(100),
+            "feature_2": np.random.rand(100),
+            "target": np.random.rand(100)
+        })
+        return sample_data
+
 if uploaded_file is not None:
     logging.info("File uploaded successfully.")
     data = load_data(uploaded_file)
 else:
     st.warning("No file uploaded. Using default demonstration dataset.")
-    data = load_data(demo_data_path)
+    data = get_demo_data()
 
 if data.empty:
-    st.error("Dataset is empty or invalid. Please upload a valid CSV.")
+    st.error("Dataset is empty or invalid. Please upload a valid CSV or use the default dataset.")
     st.stop()
 
 st.subheader("Raw Data")
