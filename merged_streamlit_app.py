@@ -126,7 +126,7 @@ if st.sidebar.button("Train Model"):
     ax.set_title("Residuals Distribution")
     st.pyplot(fig)
 
-    # Feature importances
+    # Feature importances table (graph removed)
     st.subheader("🔍 Feature Importances")
     feature_importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
     if feature_importances is not None:
@@ -135,7 +135,6 @@ if st.sidebar.button("Train Model"):
             'Importance': feature_importances
         }).sort_values(by='Importance', ascending=False)
         st.dataframe(importance_df)
-        st.bar_chart(importance_df.set_index('Feature'))
     else:
         st.write("Feature importances not available for this model.")
 
