@@ -63,7 +63,11 @@ if 'date' in features:
 scaler = MinMaxScaler()
 scaled_features = scaler.fit_transform(data[features])
 X = pd.DataFrame(scaled_features, columns=features)
-y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
+
+# Ensure that y is correctly shaped (flatten if necessary for single target columns)
+y = data[target_cols]
+if len(target_cols) == 1:
+    y = y.values.flatten()  # Flatten if a single target column
 
 # Sidebar model training parameters
 st.sidebar.header("Model Training")
@@ -88,9 +92,9 @@ if st.sidebar.button("Train Model"):
     training_time = time.time() - start_time
 
     y_pred = model.predict(X_test)
-    mae = mean_absolute_error(y_test.values.flatten(), y_pred.flatten())
-    rmse = np.sqrt(mean_squared_error(y_test.values.flatten(), y_pred.flatten()))
-    r2 = r2_score(y_test.values.flatten(), y_pred.flatten())
+    mae = mean_absolute_error(y_test, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    r2 = r2_score(y_test, y_pred)
 
     st.subheader("Model Evaluation")
     st.metric("🧮 MAE", f"{mae:.3f}")
@@ -120,7 +124,7 @@ if st.sidebar.button("Train Model"):
 
     # Residual error analysis
     st.subheader("Residual Error Analysis")
-    residuals = y_test.values.flatten() - y_pred.flatten()
+    residuals = y_test - y_pred
     fig, ax = plt.subplots()
     sns.histplot(residuals, bins=30, kde=True, ax=ax)
     ax.set_title("Residuals Distribution")
@@ -144,8 +148,8 @@ if st.sidebar.button("Train Model"):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if len(target_cols) == 1:
         col = target_cols[0]
-        pred_df[f"Actual_{col}"] = y_test.values.flatten()
-        pred_df[f"Predicted_{col}"] = y_pred.flatten()
+        pred_df[f"Actual_{col}"] = y_test
+        pred_df[f"Predicted_{col}"] = y_pred
     else:
         for i, col in enumerate(target_cols):
             pred_df[f"Actual_{col}"] = y_test.iloc[:, i].values
