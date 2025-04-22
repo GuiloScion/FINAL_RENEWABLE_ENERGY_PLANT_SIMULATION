@@ -90,11 +90,11 @@ if st.sidebar.button("Train Model"):
      # Start time
 start_time = time.time()
  
-    if model_choice == "Random Forest":
+   if model_choice == "Random Forest":
         model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    elif model_choice == "Gradient Boosting":
+   elif model_choice == "Gradient Boosting":
         model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-    else:
+   else:
         model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
  
     model.fit(X_train, y_train)
