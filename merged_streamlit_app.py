@@ -21,7 +21,7 @@ max_depth = st.sidebar.slider("Max Depth", 1, 20, 5)
 
 # --- Original Code Starts Here (Unmodified) ---
 #else:
-    model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
 
 model.fit(X_train, y_train)
 training_time = time.time() - start_time
