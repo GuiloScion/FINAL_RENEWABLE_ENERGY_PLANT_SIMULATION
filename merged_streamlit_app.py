@@ -158,11 +158,19 @@ else:
 # Sidebar: Feature Selection
 features = st.sidebar.multiselect(texts["select_features"], data.columns.tolist(), default=data.columns.tolist()[:-1])
 
-# Sidebar: Target Selection
-target_cols = st.sidebar.multiselect(texts["select_targets"], data.columns.tolist(), default=["energy_output"])
+# Check if default target columns exist in the dataset
+default_target_cols = ["energy_output", "cost_per_kWh", "energy_consumption"]
+available_target_cols = [col for col in default_target_cols if col in data.columns]
 
-if not features or not target_cols:
-    st.error(f"{texts['select_features']} and {texts['select_targets']} are required.")
+# Sidebar: Target Selection
+target_cols = st.sidebar.multiselect(
+    texts["select_targets"],
+    data.columns.tolist(),
+    default=available_target_cols  # Dynamically set only available columns as default
+)
+
+if not target_cols:
+    st.warning("No valid target columns selected. Please choose at least one target column.")
     st.stop()
 
 X, y, scaler = preprocess_data(data, features, target_cols)
