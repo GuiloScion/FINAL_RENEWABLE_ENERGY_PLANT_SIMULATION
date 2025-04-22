@@ -6,8 +6,10 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score
 from xgboost import XGBRegressor
+from catboost import CatBoostRegressor
+from lightgbm import LGBMRegressor
 import time
 import datetime
 import seaborn as sns
@@ -17,9 +19,6 @@ import logging
 import joblib
 from datetime import datetime
 from scipy.stats import shapiro
-import os
-from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVR
 import shap
 
 # Initialize logging
@@ -40,11 +39,6 @@ if enable_dark_mode:
         }
         </style>
     """, unsafe_allow_html=True)
-
-# Sidebar: Multilingual Support
-language = st.sidebar.selectbox("Select Language", ["English", "Español", "Français", "Deutsch"])
-if language != "English":
-    st.warning("Multilingual support is under development. Current language: English.")
 
 # Sidebar: Project Resources
 st.sidebar.markdown("### Project Resources")
@@ -96,7 +90,11 @@ def preprocess_data(data: pd.DataFrame, features: list, target_cols: list):
 # Helper function for real-time predictions
 def predict_new_data(model, scaler, input_data):
     try:
-        scaled_input = scaler.transform([input_data])
+        if not input_data:
+            st.warning("Please provide values for all features.")
+            return None
+        input_array = np.array(input_data).reshape(1, -1)
+        scaled_input = scaler.transform(input_array)
         prediction = model.predict(scaled_input)
         return prediction
     except Exception as e:
@@ -159,9 +157,10 @@ if X is None or y is None:
 # Sidebar: Model Training Parameters
 with st.sidebar.expander("Model Training", expanded=True):
     st.sidebar.header("Model Training")
-    model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "Linear Regression", "Support Vector Machine (SVM)"])
+    model_choice = st.sidebar.selectbox("Select Model", ["Random Forest", "Gradient Boosting", "XGBoost", "CatBoost", "LightGBM"])
     n_estimators = st.sidebar.slider("Number of Trees (for Tree-based Models)", 10, 200, 100)
     max_depth = st.sidebar.slider("Max Depth (for Tree-based Models)", 1, 20, 10)
+    learning_rate = st.sidebar.slider("Learning Rate (for Gradient Boosting Models)", 0.01, 0.3, 0.1)
 
 # Train the model if button is clicked
 if st.sidebar.button("Train Model"):
@@ -174,13 +173,13 @@ if st.sidebar.button("Train Model"):
             if model_choice == "Random Forest":
                 model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
             elif model_choice == "Gradient Boosting":
-                model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+                model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
             elif model_choice == "XGBoost":
-                model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
-            elif model_choice == "Linear Regression":
-                model = LinearRegression()
-            elif model_choice == "Support Vector Machine (SVM)":
-                model = SVR()
+                model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
+            elif model_choice == "CatBoost":
+                model = CatBoostRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42, verbose=0)
+            elif model_choice == "LightGBM":
+                model = LGBMRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
 
             cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='r2')
             st.subheader("🔄 Cross-Validation Scores")
@@ -217,7 +216,7 @@ if st.sidebar.button("Train Model"):
             st.dataframe(importance_df)
 
         # SHAP Explanations
-        if model_choice in ["Random Forest", "Gradient Boosting", "XGBoost"]:
+        if model_choice in ["Random Forest", "Gradient Boosting", "XGBoost", "CatBoost", "LightGBM"]:
             display_shap_explanations(model, X_train, features)
 
         st.subheader("📋 Predictions vs Actual")
@@ -254,4 +253,5 @@ if st.sidebar.button("Train Model"):
         input_data = [st.sidebar.number_input(f"Enter {feature}", value=0.0) for feature in features]
         if st.sidebar.button("Predict"):
             prediction = predict_new_data(model, scaler, input_data)
-            st.sidebar.write("Prediction:", prediction)
+            if prediction is not None:
+                st.sidebar.write("Prediction:", prediction[0])
