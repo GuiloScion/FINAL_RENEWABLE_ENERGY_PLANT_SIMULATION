@@ -20,10 +20,10 @@ st.title("🔋 Renewable Energy Production Predictor")
 #Sidebar for resources
 st.sidebar.markdown ("### Project Resources")
 st.sidebar.markdown ("""
-- [README.md](https://github.com/GuiloScion/90909/blob/main/README.md)
-- [LICENSE.txt](https://github.com/GuiloScion/90909/blob/main/LICENSE.txt)
-- [Model Notebook](https://github.com/GuiloScion/90909/blob/main/Renewable_Energy_ML_Model_FAST_v3_EXECUTED_FIXED%20(2)%20(1)%20(1).ipynb)
-- [requirements.txt](https://github.com/GuiloScion/90909/blob/main/requirements.txt)
+- [README](https://github.com/GuiloScion/90909/blob/main/README.md)
+- [LICENSE](https://github.com/GuiloScion/90909/blob/main/LICENSE.txt)
+- [MODEL_NOTEBOOK](https://github.com/GuiloScion/90909/blob/main/RENEWABLE_ENERGY_ML_MODEL_FAST_v3_EXECUTED_FIXED.ipynb)
+- [REQUIREMENTS](https://github.com/GuiloScion/90909/blob/main/requirements.txt)
 """)
 
 # Sidebar for file upload
