@@ -12,3 +12,4 @@ tpot
 psutil
 folium
 h2o
+automl
