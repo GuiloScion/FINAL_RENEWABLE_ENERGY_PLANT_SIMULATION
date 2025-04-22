@@ -173,7 +173,15 @@ if st.sidebar.button("Train Model"):
         data_copy.loc[outage_mask, target_cols] = 0  # Set output to 0 during outage
         return data_copy
 
+    # Add session state to track button click state
+    if "simulate_outage_clicked" not in st.session_state:
+        st.session_state.simulate_outage_clicked = False
+
     if st.sidebar.button("Simulate Outages"):
+        st.session_state.simulate_outage_clicked = True
+
+    # If the button is clicked, perform the simulation
+    if st.session_state.simulate_outage_clicked:
         simulated_data = simulate_outage(data, outage_probability, outage_duration)
         st.subheader("Simulated Data with Outages")
         st.dataframe(simulated_data)
@@ -193,3 +201,6 @@ if st.sidebar.button("Train Model"):
         plt.xlabel("Time")
         plt.ylabel("Predicted Output")
         st.pyplot()
+
+        # Reset button state after simulation
+        st.session_state.simulate_outage_clicked = False
