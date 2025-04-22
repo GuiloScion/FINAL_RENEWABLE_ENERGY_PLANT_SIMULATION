@@ -15,7 +15,6 @@ import platform
 import logging
 import joblib
 from datetime import datetime
-import torch
 from sklearn.model_selection import cross_val_score
 
 # Initialize logging
@@ -199,3 +198,26 @@ if st.sidebar.button("Train Model"):
             st.write(f"GPU Memory Usage: {torch.cuda.memory_allocated(0) / 1024**2:.2f} MB")
         else:
             st.write("GPU: Not Available")
+
+        # TensorFlow GPU check
+        try:
+            import tensorflow as tf
+            if tf.config.list_physical_devices('GPU'):
+                st.write("TensorFlow: GPU is available")
+                for gpu in tf.config.list_physical_devices('GPU'):
+                    st.write(f"TensorFlow GPU Device: {gpu}")
+            else:
+                st.write("TensorFlow: GPU is not available")
+        except ImportError:
+            st.write("TensorFlow is not installed, cannot verify GPU availability.")
+
+        # PyCUDA GPU memory check
+        try:
+            import pycuda.driver as cuda
+            import pycuda.autoinit
+            free, total = cuda.mem_get_info()
+            st.write(f"PyCUDA GPU Memory Usage: {free / 1024**2:.2f} MB free out of {total / 1024**2:.2f} MB total.")
+        except ImportError:
+            st.write("PyCUDA is not installed, cannot fetch GPU memory usage.")
+        except Exception as e:
+            st.write(f"PyCUDA error: {e}")
