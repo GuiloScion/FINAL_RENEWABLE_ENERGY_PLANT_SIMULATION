@@ -11,5 +11,3 @@ pycaret
 tpot
 psutil
 folium
-tensorflow
-pycuda
