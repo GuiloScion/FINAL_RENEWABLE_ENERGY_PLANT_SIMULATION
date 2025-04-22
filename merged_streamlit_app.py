@@ -522,11 +522,13 @@ if st.sidebar.checkbox("Leave Feedback"):
 
 def authenticate():
     try:
+        # Retrieve the recovery code from Streamlit secrets
         recovery_code = st.secrets["credentials"]["github_recovery_code"]
     except KeyError:
         st.error("GitHub recovery code is not set in Streamlit secrets.")
         return False
 
+    # Prompt for authentication
     input_code = st.text_input("Enter your GitHub recovery code:", value="", type="password")
     if st.button("Authenticate"):
         if input_code == recovery_code:
@@ -537,33 +539,62 @@ def authenticate():
             return False
     return False
 
-# Feedback Viewer with Authentication
-if st.sidebar.checkbox("View Feedback"):
-    if authenticate():  # Authenticate before showing feedback
-        try:
-            # Load feedback from feedback.json
-            with open("feedback.json", "r") as f:
-                feedback_list = [json.loads(line) for line in f]
-            st.subheader("Submitted Feedback")
-            st.write(pd.DataFrame(feedback_list))  # Display feedback in a table
+# Function for feedback submission
+def submit_feedback():
+    st.sidebar.subheader("Leave Feedback")
+    feedback = st.sidebar.text_area("Submit your feedback below:")
+    if st.sidebar.button("Submit Feedback"):
+        if feedback.strip():
+            feedback_entry = {"feedback": feedback, "timestamp": str(datetime.now())}
+            try:
+                # Append the feedback to feedback.json
+                with open("feedback.json", "a") as f:
+                    json.dump(feedback_entry, f)
+                    f.write("\n")
+                st.sidebar.success("Thank you for your feedback!")
+            except Exception as e:
+                st.sidebar.error(f"Error saving feedback: {e}")
+        else:
+            st.sidebar.error("Feedback cannot be empty.")
 
-            # Option to download feedback as JSON or CSV
-            feedback_df = pd.DataFrame(feedback_list)
-            feedback_json = feedback_df.to_json(orient="records", lines=True)
-            feedback_csv = feedback_df.to_csv(index=False)
-            st.download_button(
-                label="Download Feedback (JSON)",
-                data=feedback_json,
-                file_name="feedback.json",
-                mime="application/json",
-            )
-            st.download_button(
-                label="Download Feedback (CSV)",
-                data=feedback_csv,
-                file_name="feedback.csv",
-                mime="text/csv",
-            )
-        except FileNotFoundError:
-            st.warning("No feedback has been submitted yet.")
-        except Exception as e:
-            st.error(f"Error reading feedback: {e}")
+# Function to view feedback (restricted to developer)
+def view_feedback():
+    try:
+        # Load feedback from feedback.json
+        with open("feedback.json", "r") as f:
+            feedback_list = [json.loads(line) for line in f]
+        st.subheader("Submitted Feedback")
+        st.write(pd.DataFrame(feedback_list))  # Display feedback in a table
+
+        # Option to download feedback as JSON or CSV
+        feedback_df = pd.DataFrame(feedback_list)
+        feedback_json = feedback_df.to_json(orient="records", lines=True)
+        feedback_csv = feedback_df.to_csv(index=False)
+        st.download_button(
+            label="Download Feedback (JSON)",
+            data=feedback_json,
+            file_name="feedback.json",
+            mime="application/json",
+        )
+        st.download_button(
+            label="Download Feedback (CSV)",
+            data=feedback_csv,
+            file_name="feedback.csv",
+            mime="text/csv",
+        )
+    except FileNotFoundError:
+        st.warning("No feedback has been submitted yet.")
+    except Exception as e:
+        st.error(f"Error reading feedback: {e}")
+
+# Main App Logic
+if __name__ == "__main__":
+    st.title("Feedback App")
+
+    # Feedback submission is available to everyone
+    submit_feedback()
+
+    # Feedback viewer is restricted to authenticated users
+    if authenticate():  # Authenticate before showing feedback
+        st.sidebar.subheader("Developer Feedback Viewer")
+        view_feedback()
