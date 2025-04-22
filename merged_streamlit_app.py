@@ -18,7 +18,7 @@ import joblib
 from datetime import datetime
 from scipy.stats import shapiro
 import h2o
-from h2o.automl import H20AutoML
+from h2o.automl import H2OAutoML
 import json
 from io import BytesIO
 # Initialize logging
