@@ -469,7 +469,7 @@ if st.checkbox("Show Missing Values"):
 
 # Feature 4: Hyperparameter Search
 if st.sidebar.checkbox("Enable Hyperparameter Tuning"):
-    if 'model' not in locals():
+    if 'model' not in locals() or model is None:
         st.error("Please train a model first before performing hyperparameter tuning.")
     else:
         param_grid = {
@@ -477,9 +477,13 @@ if st.sidebar.checkbox("Enable Hyperparameter Tuning"):
             "max_depth": [5, 10, 15],
             "learning_rate": [0.01, 0.1, 0.2],
         }
-        grid_search = GridSearchCV(model, param_grid, cv=3, scoring="r2")
-        grid_search.fit(X, y)
-        st.write(f"Best Parameters: {grid_search.best_params_}")
+        try:
+            # Perform grid search
+            grid_search = GridSearchCV(model, param_grid, cv=3, scoring="r2")
+            grid_search.fit(X, y)
+            st.write(f"Best Parameters: {grid_search.best_params_}")
+        except Exception as e:
+            st.error(f"Error during hyperparameter tuning: {e}")
 
 # Feature 5: Real-Time Predictions
 st.sidebar.subheader("Real-Time Predictions")
