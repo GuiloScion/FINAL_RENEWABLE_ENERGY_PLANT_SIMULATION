@@ -13,3 +13,4 @@ psutil
 folium
 h2o
 automl
+h2o.automl
