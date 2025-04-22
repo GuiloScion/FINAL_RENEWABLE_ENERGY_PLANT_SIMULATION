@@ -519,7 +519,7 @@ if st.sidebar.checkbox("Leave Feedback"):
             json.dump({"feedback": feedback, "timestamp": str(datetime.now())}, f)
             f.write("\n")
         st.sidebar.success("Thank you for your feedback!")
-
+# Authentication for the Feedback Viewer using Streamlit Secrets
 def authenticate():
     try:
         # Retrieve the recovery code from Streamlit secrets
@@ -529,7 +529,7 @@ def authenticate():
         return False
 
     # Prompt for authentication
-    input_code = st.text_input("Enter your GitHub recovery code:", value="", type="password")
+    input_code = st.text_input("Enter your GitHub recovery code:", value="", type="password", label_visibility="collapsed")
     if st.button("Authenticate"):
         if input_code == recovery_code:
             st.success("Access granted.")
@@ -539,15 +539,29 @@ def authenticate():
             return False
     return False
 
-# Function for feedback submission
-def submit_feedback():
+# Function to view feedback (restricted to developer)
+def view_feedback():
+    try:
+        # Load feedback from feedback.json
+        with open("feedback.json", "r") as f:
+            feedback_list = [json.loads(line) for line in f]
+        st.write(pd.DataFrame(feedback_list))  # Display feedback in a smaller table
+    except FileNotFoundError:
+        st.warning("No feedback has been submitted yet.")
+    except Exception as e:
+        st.error(f"Error reading feedback: {e}")
+
+# Main App Logic
+if __name__ == "__main__":
+    # Main page content
+    st.title("Feedback App")
     st.sidebar.subheader("Leave Feedback")
     feedback = st.sidebar.text_area("Submit your feedback below:")
     if st.sidebar.button("Submit Feedback"):
         if feedback.strip():
             feedback_entry = {"feedback": feedback, "timestamp": str(datetime.now())}
             try:
-                # Append the feedback to feedback.json
+                # Append feedback to feedback.json
                 with open("feedback.json", "a") as f:
                     json.dump(feedback_entry, f)
                     f.write("\n")
@@ -557,44 +571,31 @@ def submit_feedback():
         else:
             st.sidebar.error("Feedback cannot be empty.")
 
-# Function to view feedback (restricted to developer)
-def view_feedback():
-    try:
-        # Load feedback from feedback.json
-        with open("feedback.json", "r") as f:
-            feedback_list = [json.loads(line) for line in f]
-        st.subheader("Submitted Feedback")
-        st.write(pd.DataFrame(feedback_list))  # Display feedback in a table
-
-        # Option to download feedback as JSON or CSV
-        feedback_df = pd.DataFrame(feedback_list)
-        feedback_json = feedback_df.to_json(orient="records", lines=True)
-        feedback_csv = feedback_df.to_csv(index=False)
-        st.download_button(
-            label="Download Feedback (JSON)",
-            data=feedback_json,
-            file_name="feedback.json",
-            mime="application/json",
+    # Feedback viewer (developer-only, smaller, and in the top-right corner)
+    with st.container():
+        st.markdown(
+            """
+            <style>
+            .feedback-viewer {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                width: 300px; /* Adjust the width */
+                height: 200px; /* Adjust the height */
+                background-color: #f9f9f9;
+                border: 1px solid #ddd;
+                padding: 10px;
+                overflow-y: auto; /* Add scrolling for overflow */
+                z-index: 1000; /* Ensure it appears on top */
+                box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
         )
-        st.download_button(
-            label="Download Feedback (CSV)",
-            data=feedback_csv,
-            file_name="feedback.csv",
-            mime="text/csv",
-        )
-    except FileNotFoundError:
-        st.warning("No feedback has been submitted yet.")
-    except Exception as e:
-        st.error(f"Error reading feedback: {e}")
-
-# Main App Logic
-if __name__ == "__main__":
-    st.title("Feedback App")
-
-    # Feedback submission is available to everyone
-    submit_feedback()
-
-    # Feedback viewer is restricted to authenticated users
-    if authenticate():  # Authenticate before showing feedback
-        st.sidebar.subheader("Developer Feedback Viewer")
-        view_feedback()
+        if authenticate():  # Authenticate before showing the feedback viewer
+            st.markdown('<div class="feedback-viewer">', unsafe_allow_html=True)
+            st.subheader("Feedback Viewer")
+            view_feedback()
+            st.markdown('</div>', unsafe_allow_html=True)
