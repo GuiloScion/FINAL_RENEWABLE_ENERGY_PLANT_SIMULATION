@@ -158,3 +158,38 @@ if st.sidebar.button("Train Model"):
     st.write(f"CPU Usage: {psutil.cpu_percent()}%")
     st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")
     st.write(f"System Platform: {platform.system()} {platform.release()}")
+
+    # Scenario & Outage Simulation
+    st.sidebar.header("Scenario & Outage Simulation")
+
+    # User inputs for outage scenario
+    outage_probability = st.sidebar.slider("Outage Probability (%)", 0, 100, 10)
+    outage_duration = st.sidebar.slider("Outage Duration (hours)", 1, 24, 4)
+
+    # Function to simulate outages
+    def simulate_outage(data, outage_prob, outage_dur):
+        outage_mask = np.random.rand(len(data)) < (outage_prob / 100)
+        data_copy = data.copy()
+        data_copy.loc[outage_mask, target_cols] = 0  # Set output to 0 during outage
+        return data_copy
+
+    if st.sidebar.button("Simulate Outages"):
+        simulated_data = simulate_outage(data, outage_probability, outage_duration)
+        st.subheader("Simulated Data with Outages")
+        st.dataframe(simulated_data)
+
+        # Display the impact of outages on predictions
+        X_sim = scaler.transform(simulated_data[features])
+        simulated_predictions = model.predict(X_sim)
+        st.subheader("Predicted Output with Outages")
+        simulated_pred_df = pd.DataFrame(simulated_predictions, columns=[f"Predicted_{col}" for col in target_cols])
+        st.dataframe(simulated_pred_df)
+
+        # Visualization of outage impact
+        st.subheader("Outage Impact Visualization")
+        plt.figure(figsize=(10, 6))
+        plt.plot(simulated_pred_df)
+        plt.title("Impact of Outages on Predictions")
+        plt.xlabel("Time")
+        plt.ylabel("Predicted Output")
+        st.pyplot()
