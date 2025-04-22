@@ -573,31 +573,47 @@ if __name__ == "__main__":
         else:
             st.sidebar.error("Feedback cannot be empty.")
 
-    # Feedback viewer (developer-only, MUCH smaller, and in the top-right corner)
-    if authenticate():  # Authenticate before showing the feedback viewer
-        st.markdown(
-            """
-            <style>
-            .developer-feedback-viewer {
-                position: fixed;
-                top: 10px;
-                right: 10px;
-                width: 200px; /* MUCH smaller width */
-                height: 150px; /* MUCH smaller height */
-                background-color: #fdfdfd;
-                border: 1px solid #ccc;
-                padding: 5px;
-                overflow-y: scroll; /* Scrollable for overflow content */
-                z-index: 1000; /* Ensure it appears on top */
-                box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-                border-radius: 8px;
-                font-size: 10px; /* Smaller font size */
-            }
-            </style>
-            <div class="developer-feedback-viewer">
-                <h4 style="font-size: 14px; margin-top: 0;">Feedback Viewer</h4>
-            """,
-            unsafe_allow_html=True,
-        )
-        view_feedback()  # Display feedback in the small container
-        st.markdown("</div>", unsafe_allow_html=True)
+# Feedback viewer (developer-only, MUCH smaller, and in the top-right corner)
+if authenticate():  # Authenticate before showing the feedback viewer
+    # Define the HTML and CSS for the floating feedback viewer
+    st.markdown(
+        """
+        <style>
+        .developer-feedback-viewer {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 200px; /* MUCH smaller width */
+            height: 150px; /* MUCH smaller height */
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto; /* Scrollable for overflow content */
+            z-index: 1000; /* Ensure it appears on top */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            font-size: 10px; /* Smaller font size */
+        }
+        </style>
+        <div class="developer-feedback-viewer">
+            <h4 style="font-size: 12px; margin-top: 0; text-align: center;">Feedback Viewer</h4>
+        """,
+        unsafe_allow_html=True,
+    )
+    
+    # Display the feedback data inside the floating container
+    try:
+        with open("feedback.json", "r") as f:
+            feedback_list = [json.loads(line) for line in f]  # Load feedback data
+        if feedback_list:
+            feedback_df = pd.DataFrame(feedback_list).tail(5)  # Show the last 5 entries
+            st.write(feedback_df.to_html(index=False), unsafe_allow_html=True)  # Render feedback as HTML in the viewer
+        else:
+            st.write("<p style='font-size: 10px;'>No feedback available yet.</p>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.write("<p style='font-size: 10px;'>No feedback file found.</p>", unsafe_allow_html=True)
+    except Exception as e:
+        st.write(f"<p style='font-size: 10px; color: red;'>Error: {e}</p>", unsafe_allow_html=True)
+
+    # Close the floating container
+    st.markdown("</div>", unsafe_allow_html=True)
