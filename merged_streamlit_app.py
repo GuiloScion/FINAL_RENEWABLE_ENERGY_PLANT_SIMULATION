@@ -61,12 +61,16 @@ def get_demo_data() -> pd.DataFrame:
         logging.warning("Default dataset not found. Generating a sample dataset.")
         st.warning("Default dataset not found. Using a sample dataset for demonstration.")
         
-        # Generate a sample dataset
-        sample_data = pd.DataFrame({
-            "feature_1": np.random.rand(100),
-            "feature_2": np.random.rand(100),
-            "target": np.random.rand(100)
-        })
+        # Generate a sample dataset with the same structure as the attached file
+        num_samples = 100
+        columns = [
+            "solar_output", "inverter_eff", "converter_eff", "li_batt_charge", 
+            "flow_batt_charge", "geothermal_output", "caes_storage", "chp_output", 
+            "biomass_output", "htf_temp", "molten_salt_storage", "flywheel_storage", 
+            "dac_rate", "carbon_util_rate"
+        ]
+        sample_data = pd.DataFrame(np.random.rand(num_samples, len(columns)) * 100, columns=columns)
+        sample_data["htf_temp"] *= 10  # Scale up htf_temp values to match the range in the example
         return sample_data
 
 if uploaded_file is not None:
@@ -89,7 +93,7 @@ with st.sidebar.expander("Feature Selection", expanded=True):
     features = st.sidebar.multiselect("Select features for prediction", data.columns.tolist(), default=data.columns.tolist()[:-1])
 
 # Define default target columns
-default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
+default_target_cols = ["solar_output", "inverter_eff", "converter_eff", "li_batt_charge"]
 
 # Ensure default target columns exist in the dataset
 available_target_cols = [col for col in default_target_cols if col in data.columns]
