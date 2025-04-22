@@ -181,4 +181,44 @@ if st.sidebar.button("Train Model"):
     st.subheader("⚙️ System Resource Usage")  
     st.write(f"CPU Usage: {psutil.cpu_percent()}%")  
     st.write(f"Memory Usage: {psutil.virtual_memory().percent}%")  
-    st.write(f"System Platform: {platform.system()} {platform.release()}")  
+    st.write(f"System Platform: {platform.system()} {platform.release()}")
+ 
+    st.sidebar.header("🤖 Chatbot")  
+    user_input = st.sidebar.text_input("Ask me about the model:")  
+  
+  def chatbot_response(user_input):  
+    user_input = user_input.lower()  
+    if "model" in user_input:  
+        return "The model predicts renewable energy production based on selected features and target columns. It uses machine learning algorithms to learn patterns from historical data."  
+    elif "accuracy" in user_input or "performance" in user_input:  
+        return "The model's performance is evaluated using metrics like Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and R² score. Higher R² scores indicate better predictive capability."  
+    elif "features" in user_input:  
+        return "You can select features like cost per kWh, energy consumption, and more. The choice of features greatly impacts the model's performance."  
+    elif "predictions" in user_input:  
+        return "Predictions are generated based on the trained model, which analyzes input features to estimate energy production outcomes."  
+    elif "training" in user_input:  
+        return "The model is trained using a portion of the data, typically 80%, while 20% is reserved for testing. This helps to evaluate how well the model generalizes to unseen data."  
+    elif "parameters" in user_input:  
+        return "You can adjust parameters like the number of trees in ensemble methods or the maximum depth of the trees to optimize results. Tuning these can significantly affect performance."  
+    elif "data" in user_input:  
+        return "The model uses historical data related to renewable energy production, including factors like weather conditions, energy costs, and consumption patterns."  
+    elif "application" in user_input:  
+        return "This model can help in predicting energy needs, optimizing costs, and improving energy management, which is essential for sustainable practices."  
+    elif "improve" in user_input:  
+        return "To improve the model, consider tuning hyperparameters, adding more features, or using ensemble methods. Cross-validation can also help in assessing model stability."  
+    elif "challenges" in user_input:  
+        return "Common challenges include overfitting, underfitting, and data quality issues. Ensuring that the data is clean and representative is crucial for model success."  
+    elif "ensemble methods" in user_input:  
+        return "Ensemble methods combine multiple models to improve predictions. Random Forest and Gradient Boosting are examples that can enhance accuracy and robustness."  
+    elif "cross-validation" in user_input:  
+        return "Cross-validation is a technique to assess how the results of a statistical analysis will generalize to an independent dataset. It helps in validating the model's performance."  
+    elif "explainable ai" in user_input:  
+        return "Explainable AI (XAI) focuses on making the decision-making process of models transparent. This is important for trust, especially in critical applications like energy management."  
+    elif "ask more" in user_input:  
+        return "Feel free to ask more questions! I'm here to help you understand the model and its workings better."  
+    else:  
+        return "I'm sorry, I can only answer questions about the model, its predictions, and related topics. Please ask something specific!"  
+  
+if user_input:  
+    response = chatbot_response(user_input)  
+    st.sidebar.text_area("Chatbot Response:", response, height=100)  
