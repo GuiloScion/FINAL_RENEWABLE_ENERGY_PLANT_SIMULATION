@@ -17,7 +17,10 @@ import logging
 import joblib
 from datetime import datetime
 from scipy.stats import shapiro
-
+import h2o
+from h2o.automl import H20AutoML
+import json
+from io import BytesIO
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -435,3 +438,88 @@ if st.sidebar.button(texts["train_model"]):
         st.write(f"{texts['cpu_usage']}: {psutil.cpu_percent()}%")
         st.write(f"{texts['memory_usage']}: {psutil.virtual_memory().percent}%")
         st.write(f"{texts['platform_info']}: {platform.system()} {platform.release()}")
+
+   
+# Feature 1: Correlation Heatmap
+st.subheader("Correlation Heatmap")
+if st.checkbox("Show Correlation Heatmap"):
+    corr = data.corr()
+    fig, ax = plt.subplots(figsize=(12, 8))
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
+    st.pyplot(fig)
+
+# Feature 2: Descriptive Statistics
+st.subheader("Descriptive Statistics")
+if st.checkbox("Show Descriptive Statistics"):
+    st.write(data.describe())
+
+# Feature 3: Missing Value Visualization
+st.subheader("Missing Values")
+if st.checkbox("Show Missing Values"):
+    missing_values = data.isnull().sum()
+    st.bar_chart(missing_values)
+
+# Feature 4: Hyperparameter Search
+if st.sidebar.checkbox("Enable Hyperparameter Tuning"):
+    param_grid = {
+        "n_estimators": [50, 100, 150],
+        "max_depth": [5, 10, 15],
+        "learning_rate": [0.01, 0.1, 0.2],
+    }
+    grid_search = GridSearchCV(model, param_grid, cv=3, scoring="r2")
+    grid_search.fit(X, y)
+    st.write(f"Best Parameters: {grid_search.best_params_}")
+
+# Feature 5: Real-Time Predictions
+st.sidebar.subheader("Real-Time Predictions")
+if st.sidebar.checkbox("Enable Real-Time Predictions"):
+    input_data = {feature: st.sidebar.number_input(f"Input {feature}", value=0.0) for feature in features}
+    input_df = pd.DataFrame([input_data])
+    if st.sidebar.button("Predict"):
+        prediction = model.predict(input_df)
+        st.sidebar.write(f"Prediction: {prediction}")
+
+# Feature 6: Batch Predictions
+if st.sidebar.checkbox("Enable Batch Predictions"):
+    batch_file = st.sidebar.file_uploader("Upload Batch CSV for Predictions", type="csv")
+    if batch_file:
+        batch_data = pd.read_csv(batch_file)
+        batch_predictions = model.predict(batch_data)
+        st.write(batch_predictions)
+
+# Feature 7: Export Predictions
+if st.sidebar.button("Export Predictions"):
+    predictions = model.predict(X)
+    export_df = pd.DataFrame({"Predicted Values": predictions})
+    buffer = BytesIO()
+    export_df.to_csv(buffer, index=False)
+    st.download_button(
+        label="Download Predictions",
+        data=buffer,
+        file_name="predictions.csv",
+        mime="text/csv"
+    )
+
+# Feature 8: Explainability
+if st.sidebar.checkbox("Enable Explainability"):
+    explainer = shap.Explainer(model, X)
+    shap_values = explainer(X)
+    shap.summary_plot(shap_values, X)
+
+# Feature 9: AutoML Integration
+if model_choice == "AutoML":
+    h2o.init()
+    train_data = h2o.H2OFrame(pd.concat([X, y], axis=1))
+    aml = H2OAutoML(max_runtime_secs=300)
+    aml.train(y=target_cols[0], training_frame=train_data)
+    st.write(f"Best AutoML Model: {aml.leader}")
+    h2o.shutdown(prompt=False)
+
+# Feature 10: Feedback Form
+if st.sidebar.checkbox("Leave Feedback"):
+    feedback = st.sidebar.text_area("Submit your feedback below:")
+    if st.sidebar.button("Submit Feedback"):
+        with open("feedback.json", "a") as f:
+            json.dump({"feedback": feedback, "timestamp": str(datetime.now())}, f)
+            f.write("\n")
+        st.sidebar.success("Thank you for your feedback!")
