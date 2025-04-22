@@ -64,8 +64,13 @@ scaled_features = scaler.fit_transform(data[features])
 X = pd.DataFrame(scaled_features, columns=features)
 y = data[target_cols] if len(target_cols) > 1 else data[[target_cols[0]]]
 
-# Ensure that y is a 1D array for TPOT
+# Ensure that y is a 1D array for TPOT (flattening y if necessary)
 y = y.values.flatten()  # Flatten y to ensure it's 1D
+
+# Check if X and y have the same length
+if len(X) != len(y):
+    st.error("The number of rows in features and target do not match. Please check your input data.")
+    st.stop()
 
 # Sidebar model training parameters
 st.sidebar.header("Model Training")
