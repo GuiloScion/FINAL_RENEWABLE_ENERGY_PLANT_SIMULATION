@@ -20,10 +20,10 @@ st.title("🔋 Renewable Energy Production Predictor")
 #Sidebar for resources
 st.sidebar.markdown ("### Project Resources")
 st.sidebar.markdown ("""
-- [README.md](sandbox:/mnt/data/README_contents/README.md?_chatgptios_conversationID=680707c8-3f3c-8003-8463-e0797145293b&_chatgptios_messageID=18420858-5fb9-49f8-b0e3-857c052b889c)
-- [LICENSE.txt](sandbox:/mnt/data/README_contents/LICENSE.txt?_chatgptios_conversationID=680707c8-3f3c-8003-8463-e0797145293b&_chatgptios_messageID=18420858-5fb9-49f8-b0e3-857c052b889c)
-- [Model Notebook](sandbox:/mnt/data/README_contents/Renewable_Energy_ML_Model_FAST_v3_EXECUTED_FIXED%20(2?_chatgptios_conversationID=680707c8-3f3c-8003-8463-e0797145293b&_chatgptios_messageID=18420858-5fb9-49f8-b0e3-857c052b889c)%20(1)%20(1).ipynb)
-- [requirements.txt](sandbox:/mnt/data/README_contents/requirements%20(1?_chatgptios_conversationID=680707c8-3f3c-8003-8463-e0797145293b&_chatgptios_messageID=18420858-5fb9-49f8-b0e3-857c052b889c).txt)
+- [README.md](https://github.com/GuiloScion/90909/blob/main/README.md)
+- [LICENSE.txt](https://github.com/GuiloScion/90909/blob/main/LICENSE.txt)
+- [Model Notebook](https://github.com/GuiloScion/90909/blob/main/Renewable_Energy_ML_Model_FAST_v3_EXECUTED_FIXED%20(2)%20(1)%20(1).ipynb)
+- [requirements.txt](https://github.com/GuiloScion/90909/blob/main/requirements.txt)
 """)
 
 # Sidebar for file upload
