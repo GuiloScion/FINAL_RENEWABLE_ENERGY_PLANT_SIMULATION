@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split, cross_val_score
@@ -26,7 +26,7 @@ st.set_page_config(page_title="Renewable Energy Predictor", layout="wide", initi
 
 # Language Support
 languages = {
-    "English": {
+    "English": {  # English translations
         "title": "🔋 Renewable Energy Production Predictor",
         "resources": "Project Resources",
         "readme": "README",
@@ -71,7 +71,7 @@ languages = {
         "empty_csv": "Uploaded file is empty or invalid. Please upload a valid CSV.",
         "training_error": "Error during model training: ",
     },
-    "Español": {
+    "Español": {  # Spanish translations
         "title": "🔋 Predicción de Producción de Energía Renovable",
         "resources": "Recursos del Proyecto",
         "readme": "LEEME",
@@ -118,7 +118,7 @@ languages = {
     },
 }
 
-# Get selected language
+# Get the selected language from the user
 lang = st.sidebar.selectbox("Change Language", list(languages.keys()))
 texts = languages[lang]
 
@@ -172,4 +172,131 @@ def preprocess_data(data: pd.DataFrame, features: list, target_cols: list):
         st.error(f"{texts['processing_error']} {e}")
         return None, None, None
 
-# Remaining application logic follows similar pattern, updating all texts dynamically...
+if uploaded_file is not None:
+    logging.info("File uploaded successfully.")
+    data = load_data(uploaded_file)
+    logging.info("Data loaded successfully.")
+
+    if data.empty:
+        st.error(texts["empty_csv"])
+        st.stop()
+
+    st.subheader(texts["raw_data"])
+    st.dataframe(data)
+
+    # Interactive Visualization
+    st.subheader(texts["data_visualization"])
+    selected_column = st.selectbox(texts["select_column"], data.columns)
+    fig = px.histogram(data, x=selected_column, title=f"{texts['data_visualization']} - {selected_column}")
+    st.plotly_chart(fig)
+
+else:
+    logging.warning(texts["no_file_uploaded"])
+    st.warning(texts["no_file_uploaded"])
+    st.stop()
+
+# Sidebar: Feature Selection
+with st.sidebar.expander(texts["feature_selection"], expanded=True):
+    st.sidebar.header(texts["feature_selection"])
+    features = st.sidebar.multiselect(texts["select_features"], data.columns.tolist(), default=data.columns.tolist()[:-1])
+
+# Define default target columns
+default_target_cols = ["cost_per_kWh", "energy_consumption", "energy_output", "operating_costs", "co2_captured", "hydrogen_production"]
+available_target_cols = [col for col in default_target_cols if col in data.columns]
+
+# Sidebar: Target Selection
+with st.sidebar.expander(texts["target_selection"], expanded=True):
+    target_cols = st.sidebar.multiselect(texts["select_targets"], data.columns.tolist(), default=available_target_cols)
+
+if not features or not target_cols:
+    st.error(f"{texts['select_features']} and {texts['select_targets']} are required.")
+    st.stop()
+
+X, y, scaler = preprocess_data(data, features, target_cols)
+if X is None or y is None:
+    st.stop()
+
+# Sidebar: Model Training Parameters
+with st.sidebar.expander(texts["model_training"], expanded=True):
+    st.sidebar.header(texts["model_training"])
+    model_choice = st.sidebar.selectbox(texts["select_model"], ["Random Forest", "Gradient Boosting", "XGBoost"])
+    n_estimators = st.sidebar.slider(texts["number_of_trees"], 10, 200, 100)
+    max_depth = st.sidebar.slider(texts["max_depth"], 1, 20, 10)
+    learning_rate = st.sidebar.slider(texts["learning_rate"], 0.01, 0.3, 0.1)
+
+# Train the model if button is clicked
+if st.sidebar.button(texts["train_model"]):
+    with st.spinner(texts["train_model"]):
+        logging.info(f"Model training started using {model_choice}.")
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        start_time = time.time()
+
+        try:
+            if model_choice == "Random Forest":
+                model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+            elif model_choice == "Gradient Boosting":
+                model = GradientBoostingRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
+            elif model_choice == "XGBoost":
+                model = XGBRegressor(n_estimators=n_estimators, max_depth=max_depth, learning_rate=learning_rate, random_state=42)
+
+            cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='r2')
+            st.subheader(texts["cross_validation_scores"])
+            st.write(f"{texts['mean_r2']}: {np.mean(cv_scores):.3f}")
+
+            model.fit(X_train, y_train)
+        except Exception as e:
+            logging.error(f"{texts['training_error']} {e}")
+            st.error(f"{texts['training_error']} {e}")
+            st.stop()
+
+        training_time = time.time() - start_time
+        logging.info("Model training completed.")
+
+        model_filename = f"trained_model_{model_choice}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.joblib"
+        joblib.dump(model, model_filename)
+        st.success(f"Model saved as {model_filename}")
+
+        y_pred = model.predict(X_test)
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+
+        st.subheader(texts["model_evaluation"])
+        st.metric(texts["mae"], f"{mae:.3f}")
+        st.metric(texts["rmse"], f"{rmse:.3f}")
+        st.metric(texts["r2_score"], f"{r2:.3f}")
+        st.metric(texts["training_time"], f"{training_time:.2f} seconds")
+
+        if hasattr(model, "feature_importances_"):
+            st.subheader(texts["feature_importances"])
+            importance_df = pd.DataFrame({'Feature': features, 'Importance': model.feature_importances_}).sort_values(by="Importance", ascending=False)
+            st.dataframe(importance_df)
+
+        st.subheader(texts["predictions_vs_actual"])
+        pred_df = pd.DataFrame({"Actual": y_test.values.flatten(), "Predicted": y_pred.flatten()})
+        st.dataframe(pred_df)
+
+        st.subheader(texts["scatter_plot"])
+        fig, ax = plt.subplots()
+        ax.scatter(pred_df["Actual"], pred_df["Predicted"], alpha=0.7, label="Predictions")
+        ax.plot([pred_df["Actual"].min(), pred_df["Actual"].max()],
+                [pred_df["Actual"].min(), pred_df["Actual"].max()], 'k--', color='red', label="Perfect Fit")
+        ax.set_xlabel("Actual")
+        ax.set_ylabel("Predicted")
+        ax.legend()
+        st.pyplot(fig)
+
+        st.subheader(texts["residual_analysis"])
+        residuals = y_test.values.flatten() - y_pred.flatten()
+        fig, ax = plt.subplots()
+        sns.histplot(residuals, bins=30, kde=True, ax=ax)
+        ax.set_title(texts["residual_distribution"])
+        st.pyplot(fig)
+
+        shapiro_stat, shapiro_p = shapiro(residuals)
+        st.write(f"{texts['shapiro_test']}: Statistic={shapiro_stat:.3f}, p-value={shapiro_p:.3f}")
+
+        st.subheader(texts["cpu_usage"])
+        st.write(f"{texts['cpu_usage']}: {psutil.cpu_percent()}%")
+        st.write(f"{texts['memory_usage']}: {psutil.virtual_memory().percent}%")
+        st.write(f"{texts['platform_info']}: {platform.system()} {platform.release()}")
