@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide", initial_sidebar_state="expanded")
 
 # Title
-st.title(texts["title"])
+st.title(["title"])
 
 # Sidebar: Project Resources
 st.sidebar.markdown(f"### {texts['resources']}")
