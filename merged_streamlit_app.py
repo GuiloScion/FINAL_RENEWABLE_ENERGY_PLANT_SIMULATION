@@ -434,9 +434,6 @@ if st.sidebar.button(texts["train_model"]):
         ax.set_title(texts["residual_distribution"])
         st.pyplot(fig)
 
-        shapiro_stat, shapiro_p = shapiro(residuals)
-        st.write(f"{texts['shapiro_test']}: Statistic={shapiro_stat:.3f}, p-value={shapiro_p:.3f}")
-
         st.subheader(texts["cpu_usage"])
         st.write(f"{texts['cpu_usage']}: {psutil.cpu_percent()}%")
         st.write(f"{texts['memory_usage']}: {psutil.virtual_memory().percent}%")
