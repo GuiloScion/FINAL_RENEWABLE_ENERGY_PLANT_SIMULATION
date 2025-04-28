@@ -273,32 +273,6 @@ st.sidebar.markdown(f"""
 with st.sidebar.expander(texts["upload_data"], expanded=True):
     uploaded_file = st.file_uploader(texts["choose_csv"], type="csv")
 
-# Add a default demonstration dataset
-def load_demo_data() -> pd.DataFrame:
-    demo_data = """
-    solar_output,inverter_eff,converter_eff,li_batt_charge,flow_batt_charge,geothermal_output,caes_storage,chp_output,biomass_output,htf_temp,molten_salt_storage,flywheel_storage,dac_rate,carbon_util_rate
-    37.454011884736246,0.9872626164988103,0.8047143778530101,0.9082658859666537,0.6420316461542878,14.722444603479284,5.16817211686077,30.188175514805263,4.124954753437304,510.8587663709747,139.63234280394903,26.00817505559967,1.6893506307216455,0.43460144043711846
-    95.07143064099162,0.9697619541025003,0.895461561689567,0.23956189066697242,0.08413996499504883,19.254886430096263,53.1354631568148,51.389390471299336,36.102116267182666,423.361699894322,107.21927326882408,42.609075015927004,2.7859033903195862,2.685532709092739
-    """
-    from io import StringIO
-    return pd.read_csv(StringIO(demo_data))
-
-# Check if a file is uploaded, otherwise load the demo data
-if uploaded_file is not None:
-    logging.info("File uploaded successfully.")
-    data = load_data(uploaded_file)
-else:
-    logging.info("No file uploaded. Using demonstration dataset.")
-    st.warning(texts["no_file_uploaded"] + " Using a demonstration dataset instead.")
-    data = load_demo_data()
-
-if data.empty:
-    st.error(texts["empty_csv"])
-    st.stop()
-
-st.subheader(texts["raw_data"])
-st.dataframe(data)
-
 # Interactive Visualization
 st.subheader(texts["data_visualization"])
 selected_column = st.selectbox(texts["select_column"], data.columns)
