@@ -29,59 +29,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Set up Streamlit configuration
 st.set_page_config(page_title="Renewable Energy Predictor", layout="wide", initial_sidebar_state="expanded")
 
-# Language Support
-languages = {
-    "English": {  # English translations
-        "title": "🔋 Renewable Energy Production Predictor",
-        "resources": "Project Resources",
-        "readme": "README",
-        "license": "LICENSE",
-        "notebook": "MODEL_NOTEBOOK",
-        "requirements": "REQUIREMENTS",
-        "upload_data": "Upload Data",
-        "choose_csv": "Choose a CSV file",
-        "raw_data": "Raw Data",
-        "data_visualization": "📊 Data Visualization",
-        "select_column": "Select a column to visualize",
-        "feature_selection": "Feature Selection",
-        "select_features": "Select features for prediction",
-        "target_selection": "Target Selection",
-        "select_targets": "Select target columns",
-        "model_training": "Model Training",
-        "select_model": "Select Model",
-        "number_of_trees": "Number of Trees (for Tree-based Models)",
-        "max_depth": "Max Depth (for Tree-based Models)",
-        "learning_rate": "Learning Rate (for Gradient Boosting Models)",
-        "train_model": "Train Model",
-        "cross_validation_scores": "🔄 Cross-Validation Scores",
-        "mean_r2": "Mean R² score",
-        "model_evaluation": "Model Evaluation",
-        "mae": "🧮 MAE",
-        "rmse": "📉 RMSE",
-        "r2_score": "📈 R² Score",
-        "training_time": "⏱️ Training Time",
-        "feature_importances": "🔍 Feature Importances",
-        "predictions_vs_actual": "📋 Predictions vs Actual",
-        "scatter_plot": "📈 Predictions vs Actual Scatter Plot",
-        "residual_analysis": "Residual Error Analysis",
-        "residual_distribution": "Residuals Distribution",
-        "shapiro_test": "Shapiro-Wilk Test",
-        "cpu_usage": "CPU Usage",
-        "memory_usage": "Memory Usage",
-        "platform_info": "System Platform",
-        "no_file_uploaded": "Please upload a CSV file to proceed.",
-        "error_loading_file": "Error reading the file: ",
-        "missing_values_warning": "Data contains missing values. Consider cleaning the data.",
-        "processing_error": "Error during preprocessing: ",
-        "empty_csv": "Uploaded file is empty or invalid. Please upload a valid CSV.",
-        "training_error": "Error during model training: ",
-    },
-}
-
-# Get the selected language from the user
-lang = st.sidebar.selectbox("Change Language", list(languages.keys()))
-texts = languages[lang]
-
 # Title
 st.title(texts["title"])
 
@@ -102,9 +49,22 @@ with st.sidebar.expander(texts["upload_data"], expanded=True):
 def load_demo_data() -> pd.DataFrame:
     demo_data = """
     solar_output,inverter_eff,converter_eff,li_batt_charge,flow_batt_charge,geothermal_output,caes_storage,chp_output,biomass_output,htf_temp,molten_salt_storage,flywheel_storage,dac_rate,carbon_util_rate
-    37.454011884736246,0.9872626164988103,0.8047143778530101,0.9082658859666537,0.6420316461542878,14.722444603479284,5.16817211686077,30.188175514805263,4.124954753437304,510.8587663709747,139.63234280394903,26.00817505559967,1.6893506307216455,0.43460144043711846
-    95.07143064099162,0.9697619541025003,0.895461561689567,0.23956189066697242,0.08413996499504883,19.254886430096263,53.1354631568148,51.389390471299336,36.102116267182666,423.361699894322,107.21927326882408,42.609075015927004,2.7859033903195862,2.685532709092739
-    """
+    """ + "\n".join([",".join(map(str, [
+        np.random.uniform(10, 100),  # solar_output
+        np.random.uniform(0.8, 1.0),  # inverter_eff
+        np.random.uniform(0.7, 0.9),  # converter_eff
+        np.random.uniform(0.2, 1.0),  # li_batt_charge
+        np.random.uniform(0.1, 0.9),  # flow_batt_charge
+        np.random.uniform(10, 20),  # geothermal_output
+        np.random.uniform(5, 50),  # caes_storage
+        np.random.uniform(20, 60),  # chp_output
+        np.random.uniform(1, 40),  # biomass_output
+        np.random.uniform(300, 600),  # htf_temp
+        np.random.uniform(100, 200),  # molten_salt_storage
+        np.random.uniform(20, 50),  # flywheel_storage
+        np.random.uniform(1, 3),  # dac_rate
+        np.random.uniform(0.1, 3.0)  # carbon_util_rate
+    ])) for _ in range(50)])  # Generate 50 rows of random data
     return pd.read_csv(StringIO(demo_data))
 
 # Function to load data
