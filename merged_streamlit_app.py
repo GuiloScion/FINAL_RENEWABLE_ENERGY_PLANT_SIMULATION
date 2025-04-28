@@ -42,7 +42,7 @@ st.sidebar.markdown(f"""
 """)
 
 # Title
-st.title(["title"])
+st.title(texts["title"])
 
 # Sidebar: File Upload
 with st.sidebar.expander(texts["upload_data"], expanded=True):
