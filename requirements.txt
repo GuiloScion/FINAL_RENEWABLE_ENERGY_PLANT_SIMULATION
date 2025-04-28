@@ -4,12 +4,3 @@ numpy
 matplotlib
 scikit-learn
 xgboost
-mlflow
-shap
-autokeras
-pycaret
-tpot
-psutil
-folium
-h2o
-automl
