@@ -12,9 +12,16 @@ from xgboost import XGBRegressor
 import time
 import datetime
 import seaborn as sns
+import psutil
+import platform
 import logging
 import joblib
 from datetime import datetime
+from scipy.stats import shapiro
+import h2o
+from h2o.automl import H2OAutoML
+import json
+from io import BytesIO
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -434,6 +441,9 @@ if st.sidebar.button(texts["train_model"]):
         ax.set_title(texts["residual_distribution"])
         st.pyplot(fig)
 
+        shapiro_stat, shapiro_p = shapiro(residuals)
+        st.write(f"{texts['shapiro_test']}: Statistic={shapiro_stat:.3f}, p-value={shapiro_p:.3f}")
+
         st.subheader(texts["cpu_usage"])
         st.write(f"{texts['cpu_usage']}: {psutil.cpu_percent()}%")
         st.write(f"{texts['memory_usage']}: {psutil.virtual_memory().percent}%")
@@ -487,3 +497,16 @@ if st.sidebar.checkbox("Enable Hyperparameter Tuning"):
             st.write(f"Best Parameters: {grid_search.best_params_}")
         except Exception as e:
             st.error(f"Error during hyperparameter tuning: {e}")
+
+# Feature 9: AutoML Integration
+if model_choice == "AutoML":
+    try:
+        h2o.init()
+        train_data = h2o.H2OFrame(pd.concat([X, y], axis=1))
+        aml = H2OAutoML(max_runtime_secs=300)
+        aml.train(y=target_cols[0], training_frame=train_data)
+        st.write(f"Best AutoML Model: {aml.leader}")
+    except Exception as e:
+        st.error(f"H2O AutoML encountered an error: {e}")
+    finally:
+        h2o.shutdown(prompt=False)
