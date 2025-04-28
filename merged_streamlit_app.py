@@ -41,6 +41,64 @@ st.sidebar.markdown(f"""
 - [{texts['requirements']}](https://github.com/GuiloScion/90909/blob/main/requirements.txt)
 """)
 
+# Language Support
+languages = {
+    "English": {  # English translations
+        "title": "🔋 Renewable Energy Production Predictor",
+        "resources": "Project Resources",
+        "readme": "README",
+        "license": "LICENSE",
+        "notebook": "MODEL_NOTEBOOK",
+        "requirements": "REQUIREMENTS",
+        "upload_data": "Upload Data",
+        "choose_csv": "Choose a CSV file",
+        "raw_data": "Raw Data",
+        "data_visualization": "📊 Data Visualization",
+        "select_column": "Select a column to visualize",
+        "feature_selection": "Feature Selection",
+        "select_features": "Select features for prediction",
+        "target_selection": "Target Selection",
+        "select_targets": "Select target columns",
+        "model_training": "Model Training",
+        "select_model": "Select Model",
+        "number_of_trees": "Number of Trees (for Tree-based Models)",
+        "max_depth": "Max Depth (for Tree-based Models)",
+        "learning_rate": "Learning Rate (for Gradient Boosting Models)",
+        "train_model": "Train Model",
+        "cross_validation_scores": "🔄 Cross-Validation Scores",
+        "mean_r2": "Mean R² score",
+        "model_evaluation": "Model Evaluation",
+        "mae": "🧮 MAE",
+        "rmse": "📉 RMSE",
+        "r2_score": "📈 R² Score",
+        "training_time": "⏱️ Training Time",
+        "feature_importances": "🔍 Feature Importances",
+        "predictions_vs_actual": "📋 Predictions vs Actual",
+        "scatter_plot": "📈 Predictions vs Actual Scatter Plot",
+        "residual_analysis": "Residual Error Analysis",
+        "residual_distribution": "Residuals Distribution",
+        "shapiro_test": "Shapiro-Wilk Test",
+        "cpu_usage": "CPU Usage",
+        "memory_usage": "Memory Usage",
+        "platform_info": "System Platform",
+        "no_file_uploaded": "Please upload a CSV file to proceed.",
+        "error_loading_file": "Error reading the file: ",
+        "missing_values_warning": "Data contains missing values. Consider cleaning the data.",
+        "processing_error": "Error during preprocessing: ",
+        "empty_csv": "Uploaded file is empty or invalid. Please upload a valid CSV.",
+        "training_error": "Error during model training: ",
+    },
+}
+
+# Get the selected language from the user
+lang = st.sidebar.selectbox("Change Language", list(languages.keys()))
+
+# Set a default language to English in case something goes wrong
+texts = languages.get(lang, languages["English"])
+
+# Title
+st.title(texts["title"])
+
 # Sidebar: File Upload
 with st.sidebar.expander(texts["upload_data"], expanded=True):
     uploaded_file = st.file_uploader(texts["choose_csv"], type="csv")
