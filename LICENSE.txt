@@ -3,10 +3,10 @@ Copyright (©) [2025] [Noah Parsons]
 
 All rights reserved.
 
-Permission is hereby granted to access, view, or download this software and its accompanying materials (the "Software")
+Permission is hereby granted to ACCESS, VIEW, or DOWNLOAD this software and its accompanying materials (the "Software")
 FOR EVALUATION PURPOSES ONLY.
-Any other use, including but not limited to copying, modifying, distributing, or deploying the Software, is strictly prohibited 
-without prior written consent from the developer.
+Any other use, including but not limited to copying, modifying, distributing, or deploying the Software, is strictly PROHIBITED 
+without prior WRITTEN CONSENT from the developer.
 
 To request permission to use the Software, please contact the developer.
 
