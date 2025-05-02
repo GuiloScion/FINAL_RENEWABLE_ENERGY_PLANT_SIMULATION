@@ -497,16 +497,3 @@ if st.sidebar.checkbox("Enable Hyperparameter Tuning"):
             st.write(f"Best Parameters: {grid_search.best_params_}")
         except Exception as e:
             st.error(f"Error during hyperparameter tuning: {e}")
-
-# Feature 9: AutoML Integration
-if model_choice == "AutoML":
-    try:
-        h2o.init()
-        train_data = h2o.H2OFrame(pd.concat([X, y], axis=1))
-        aml = H2OAutoML(max_runtime_secs=300)
-        aml.train(y=target_cols[0], training_frame=train_data)
-        st.write(f"Best AutoML Model: {aml.leader}")
-    except Exception as e:
-        st.error(f"H2O AutoML encountered an error: {e}")
-    finally:
-        h2o.shutdown(prompt=False)
