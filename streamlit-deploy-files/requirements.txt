@@ -13,3 +13,4 @@ psutil
 folium
 h2o
 automl
+sklearn
